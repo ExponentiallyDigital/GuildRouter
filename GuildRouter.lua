@@ -61,11 +61,35 @@ end
 ------------------------------------------------------------
 local function EnsureGuildTabExists()
     local frame = FindTargetFrame()
-    if frame then return frame end
+    if frame then
+        return frame -- Do NOT modify existing tabs
+    end
 
+    -- Create the tab
     frame = FCF_OpenNewWindow(TARGET_TAB_NAME)
     FCF_SetLocked(frame, true)
+
+    -- Configure it once
+    ConfigureGuildTab(frame)
     return frame
+end
+
+
+------------------------------------------------------------
+-- Configure the Guild tab ONLY when we create it
+------------------------------------------------------------
+local function ConfigureGuildTab(frame)
+    -- Enable guild chat
+    ChatFrame_AddChannel(frame, "Guild")
+
+    -- Enable officer chat (if player has permission)
+    ChatFrame_AddChannel(frame, "Officer")
+
+    -- Enable system messages
+    ChatFrame_AddMessageGroup(frame, "SYSTEM")
+
+    -- Enable guild achievements / announcements
+    ChatFrame_AddMessageGroup(frame, "GUILD_ACHIEVEMENT")
 end
 
 ------------------------------------------------------------
@@ -230,7 +254,9 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         targetFrame:AddMessage(formatted)
         return true
     end
-
+    
+    -- Nothing matched, let WoW handle it normally
+    DebugUnhandledSystemMessage(msg)
     return false
 end
 
@@ -255,3 +281,24 @@ motdFrame:RegisterEvent("GUILD_MOTD")
 motdFrame:SetScript("OnEvent", function(_, _, msg)
     FilterGuildMessages(nil, "GUILD_MOTD", msg)
 end)
+
+------------------------------------------------------------
+-- Debug Mode
+-- /grdebug toggles printing unhandled system messages
+------------------------------------------------------------
+local GRDebugEnabled = false
+local lastDebugMsg = nil
+
+SLASH_GRDEBUG1 = "/grdebug"
+SlashCmdList["GRDEBUG"] = function()
+    GRDebugEnabled = not GRDebugEnabled
+    print("|cff00ff00GuildRouter Debug:|r " .. (GRDebugEnabled and "ON" or "OFF"))
+end
+
+-- Debug hook: prints unhandled CHAT_MSG_SYSTEM lines
+local function DebugUnhandledSystemMessage(msg)
+    if not GRDebugEnabled then return end
+    if msg == lastDebugMsg then return end -- avoid spam
+    lastDebugMsg = msg
+    print("|cffff8800[GR Debug]|r Unhandled system message: " .. msg)
+end

@@ -3,8 +3,6 @@
 --      All player names (except in roster changes) are class-coloured and clickable.
 --      Join/leave messages are de-duplicated (Blizzard fires them multiple times).
 -- Architecture:
---      consumes ~80KB for a 1,000 player guild
---      only fires on events
 --   To test:
 --      1. achieve toon name is clickable
 --      2. what to do if chat tab doesn't exist, craete one?

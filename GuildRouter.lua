@@ -355,7 +355,8 @@ motdFrame:SetScript("OnEvent", function(_, _, msg)
 end)
 
 ------------------------------------------------------------
--- Auto-create Guild tab on login
+-- Load presence preference, defaults to guild only
+-- if needed, auto-create Guild tab on login
 ------------------------------------------------------------
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("PLAYER_LOGIN")
@@ -555,12 +556,12 @@ end
 SLASH_GRHELP1 = "/grhelp"
 SlashCmdList["GRHELP"] = function()
     print("|cff00ff00GuildRouter by ArcNineOhNine, commands:|r")
-    print(" /grreset    - Delete and recreate the Guild tab")
-    print(" /grdock     - Dock the Guild tab if not visible")
-    print(" /grfix      - Repair Guild tab message groups and dock it")
-    print(" /grsources  - Show message groups/channels for the Guild tab")
-    print(" /grtest     - Simulate guild events (join, leave, promote, demote, note, ach)")
-    print(" /grpresence - toggle login/logout announcements (guild-only, all, off, trace)")
-    print(" /grdebug    - Toggle debug mode for unhandled system messages")
-    print(" /grhelp     - Show this command list")
+    print(" /grreset    - delete & recreate the Guild tab")
+    print(" /grdock     - dock the Guild tab if not visible")
+    print(" /grfix      - repair Guild tab message groups and dock the tab")
+    print(" /grsources  - show message groups/channels for the Guild tab")
+    print(" /grtest     - simulate guild events (join, leave, promote, demote, note, ach)")
+    print(" /grpresence - set & save login/out announcements (def=guild-only, all, off, trace)")
+    print(" /grdebug    - toggle debug mode for unhandled system messages")
+    print(" /grhelp     - show this command list")
 end

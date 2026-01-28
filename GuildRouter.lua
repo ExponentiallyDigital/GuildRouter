@@ -431,6 +431,7 @@ end)
 ------------------------------------------------------------
 SLASH_GRRESET1 = "/grreset"
 SlashCmdList["GRRESET"] = function()
+    -- Delete existing Guild tab if present
     for i = 1, NUM_CHAT_WINDOWS do
         if GetChatWindowInfo(i) == TARGET_TAB_NAME then
             FCF_Close(_G["ChatFrame"..i])
@@ -438,25 +439,38 @@ SlashCmdList["GRRESET"] = function()
         end
     end
 
+    -- Recreate
     targetFrame = EnsureGuildTabExists()
 
-    -- Reapply message groups even if the tab already existed
+    -- Reapply message groups
     ConfigureGuildTab(targetFrame)
 
-    -- Force the frame to be dockable again (ElvUI-safe)
+    -- Make sure it's dockable
     targetFrame.isDockable = 1
     targetFrame.isLocked = 0
 
-    -- Register with the dock manager
+    -- Register with dock manager
     if GeneralDockManager and GeneralDockManager.AddChatFrame then
         GeneralDockManager:AddChatFrame(targetFrame)
     end
 
-    -- Now dock it
+    -- Dock it
     SafeDock(targetFrame)
+
+    ------------------------------------------------------------
+    -- Move Guild tab to the LAST position
+    ------------------------------------------------------------
+    local dock = GeneralDockManager.primary
+    if dock and dock.DOCKED_CHAT_FRAMES then
+        local count = #dock.DOCKED_CHAT_FRAMES
+        if count > 1 then
+            FCF_DockFrame(targetFrame, count + 1)
+        end
+    end
 
     print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
 end
+
 
 ------------------------------------------------------------
 -- /grdelete — permanently delete the Guild tab

@@ -431,7 +431,6 @@ end)
 ------------------------------------------------------------
 SLASH_GRRESET1 = "/grreset"
 SlashCmdList["GRRESET"] = function()
-    -- Delete existing Guild tab if present
     for i = 1, NUM_CHAT_WINDOWS do
         if GetChatWindowInfo(i) == TARGET_TAB_NAME then
             FCF_Close(_G["ChatFrame"..i])
@@ -439,38 +438,52 @@ SlashCmdList["GRRESET"] = function()
         end
     end
 
-    -- Recreate
     targetFrame = EnsureGuildTabExists()
 
-    -- Reapply message groups
+    -- Reapply message groups even if the tab already existed
     ConfigureGuildTab(targetFrame)
 
-    -- Make sure it's dockable
+    -- Force the frame to be dockable again (ElvUI-safe)
     targetFrame.isDockable = 1
     targetFrame.isLocked = 0
 
-    -- Register with dock manager
+    -- Register with the dock manager
     if GeneralDockManager and GeneralDockManager.AddChatFrame then
         GeneralDockManager:AddChatFrame(targetFrame)
     end
 
-    -- Dock it
+    -- Now dock it
     SafeDock(targetFrame)
-
     ------------------------------------------------------------
-    -- Move Guild tab to the LAST position
+    -- Move Guild tab to the LAST dock position
     ------------------------------------------------------------
     local dock = GeneralDockManager.primary
     if dock and dock.DOCKED_CHAT_FRAMES then
-        local count = #dock.DOCKED_CHAT_FRAMES
-        if count > 1 then
-            FCF_DockFrame(targetFrame, count + 1)
+        -- Force the dock manager to refresh its list
+        GeneralDockManager:UpdateTabs()
+
+        -- Find the index of our frame
+        local index
+        for i, f in ipairs(dock.DOCKED_CHAT_FRAMES) do
+            if f == targetFrame then
+                index = i
+                break
+            end
+        end
+
+        if index then
+            -- Remove it from its current position
+            table.remove(dock.DOCKED_CHAT_FRAMES, index)
+
+            -- Insert it at the end
+            table.insert(dock.DOCKED_CHAT_FRAMES, targetFrame)
+
+            -- Reapply the dock layout
+            GeneralDockManager:LayoutTabs()
         end
     end
-
     print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
 end
-
 
 ------------------------------------------------------------
 -- /grdelete — permanently delete the Guild tab

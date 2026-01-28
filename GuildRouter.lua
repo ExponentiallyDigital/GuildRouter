@@ -256,7 +256,9 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
     end
     
     -- Nothing matched, let WoW handle it normally
-    DebugUnhandledSystemMessage(msg)
+    if DebugUnhandledSystemMessage then
+        DebugUnhandledSystemMessage(msg)
+    end
     return false
 end
 
@@ -283,6 +285,18 @@ motdFrame:SetScript("OnEvent", function(_, _, msg)
 end)
 
 ------------------------------------------------------------
+-- Create the Guild tab immediately on addon load
+------------------------------------------------------------
+local initFrame = CreateFrame("Frame")
+initFrame:RegisterEvent("PLAYER_LOGIN")
+initFrame:SetScript("OnEvent", function()
+    -- Ensure the tab exists
+    targetFrame = FindTargetFrame() or EnsureGuildTabExists()
+    -- refresh name cache
+    RefreshNameCache()
+end)
+
+------------------------------------------------------------
 -- Debug Mode
 -- /grdebug toggles printing unhandled system messages
 ------------------------------------------------------------
@@ -302,3 +316,152 @@ local function DebugUnhandledSystemMessage(msg)
     lastDebugMsg = msg
     print("|cffff8800[GR Debug]|r Unhandled system message: " .. msg)
 end
+
+------------------------------------------------------------
+-- /grreset — delete + recreate the Guild tab
+------------------------------------------------------------
+SLASH_GRRESET1 = "/grreset"
+SlashCmdList["GRRESET"] = function()
+    -- Find and close the Guild tab if it exists
+    for i = 1, NUM_CHAT_WINDOWS do
+        if GetChatWindowInfo(i) == TARGET_TAB_NAME then
+            FCF_Close(_G["ChatFrame"..i])
+            break
+        end
+    end
+
+    -- Recreate it cleanly
+    targetFrame = EnsureGuildTabExists()
+    print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
+end
+
+------------------------------------------------------------
+-- /grsources — list message groups the Guild tab receives
+------------------------------------------------------------
+SLASH_GRSOURCES1 = "/grsources"
+SlashCmdList["GRSOURCES"] = function()
+    local frame = FindTargetFrame()
+    if not frame then
+        print("|cffff0000GuildRouter:|r Guild tab not found.")
+        return
+    end
+
+    print("|cff00ff00GuildRouter Sources for 'Guild' tab:|r")
+
+    -- Message groups (SYSTEM, GUILD_ACHIEVEMENT, etc.)
+    for group, enabled in pairs(frame.messageTypeList or {}) do
+        if enabled then
+            print("  • Message Group: " .. group)
+        end
+    end
+
+    -- Channels (Guild, Officer)
+    for _, channel in ipairs(frame.channelList or {}) do
+        print("  • Channel: " .. channel)
+    end
+end
+
+------------------------------------------------------------
+-- /grfix — repair Guild tab message groups
+------------------------------------------------------------
+SLASH_GRFIX1 = "/grfix"
+SlashCmdList["GRFIX"] = function()
+    local frame = FindTargetFrame() or EnsureGuildTabExists()
+
+    -- Core system messages
+    ChatFrame_AddMessageGroup(frame, "SYSTEM")
+
+    -- Guild chat + officer chat
+    ChatFrame_AddMessageGroup(frame, "GUILD")
+    ChatFrame_AddMessageGroup(frame, "OFFICER")
+
+    -- Guild achievements / announcements
+    ChatFrame_AddMessageGroup(frame, "GUILD_ACHIEVEMENT")
+
+    print("|cff00ff00GuildRouter:|r Guild tab sources repaired.")
+end
+
+------------------------------------------------------------
+-- /grtest — simulate guild events
+------------------------------------------------------------
+SLASH_GRTEST1 = "/grtest"
+SlashCmdList["GRTEST"] = function(arg)
+    local frame = FindTargetFrame() or EnsureGuildTabExists()
+
+    if arg == "join" then
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has joined the guild.")
+        print("|cff00ff00GR Test:|r join fired.")
+    elseif arg == "leave" then
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has left the guild.")
+        print("|cff00ff00GR Test:|r leave fired.")
+    elseif arg == "promote" then
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has promoted Tankadin to rank Member.")
+        print("|cff00ff00GR Test:|r promote fired.")
+    elseif arg == "demote" then
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has demoted Tankadin to rank Initiate.")
+        print("|cff00ff00GR Test:|r demote fired.")
+    elseif arg == "note" then
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has changed the Officer Note for Tankadin.")
+        print("|cff00ff00GR Test:|r officer note fired.")
+    elseif arg == "ach" then
+        FilterGuildMessages(nil, "CHAT_MSG_GUILD_ACHIEVEMENT",
+            "%s has earned the achievement %s!", "Arcette-Jubei'Thos",
+            "|cffffff00|Hachievement:6:Player-1234-00000000:1:1:1:1:4294967295:4294967295:4294967295:4294967295|h[Level 10]|h|r")
+        print("|cff00ff00GR Test:|r achievement fired.")
+    else
+        print("|cff00ff00GuildRouter Test Commands:|r")
+        print("  /grtest join")
+        print("  /grtest leave")
+        print("  /grtest promote")
+        print("  /grtest demote")
+        print("  /grtest note")
+        print("  /grtest ach")
+    end
+end
+
+------------------------------------------------------------
+-- /grdock — safely dock the Guild tab (ElvUI compatible)
+------------------------------------------------------------
+SLASH_GRDOCK1 = "/grdock"
+SlashCmdList["GRDOCK"] = function()
+    local frame = FindTargetFrame()
+    if not frame then
+        print("|cffff0000GuildRouter:|r Guild tab not found.")
+        return
+    end
+
+    -- Ensure the frame is shown
+    frame:Show()
+
+    -- Mark it as docked (Blizzard + ElvUI compatible)
+    frame.isDocked = 1
+
+    -- Add to the dock manager safely
+    if GeneralDockManager and GeneralDockManager.AddChatFrame then
+        GeneralDockManager:AddChatFrame(frame)
+    end
+
+    -- Select it so the tab becomes visible
+    if FCF_SelectDockFrame then
+        FCF_SelectDockFrame(frame)
+    end
+
+    print("|cff00ff00GuildRouter:|r Guild tab docked safely.")
+end
+
+------------------------------------------------------------
+-- /grhelp — list all GuildRouter commands
+------------------------------------------------------------
+SLASH_GRHELP1 = "/grhelp"
+SlashCmdList["GRHELP"] = function()
+    print("|cff00ff00GuildRouter Commands:|r")
+
+    print("  /grdebug   - Toggle debug mode for unhandled system messages")
+    print("  /grdock    - redock/make Guild tab visible")
+    print("  /grreset   - Delete and recreate the Guild tab immediately")
+    print("  /grsources - Show which message groups the Guild tab receives")
+    print("  /grfix     - Repair Guild tab message groups and channels")
+    print("  /grtest    - Simulate guild events (use /grtest for list)")
+    print("  /grhelp    - Show this command list")
+end
+

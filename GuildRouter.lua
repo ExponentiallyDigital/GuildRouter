@@ -1,52 +1,125 @@
 -- Guild Router
--- Routes guild MOTD, join/leave, achievements, and roster changes ONLY to the tab named "Guild"
---
--- to test: achieve toon name is clickable
+-- Routes guild MOTD, join/leave, achievements, and roster changes to the tab named "Guild".
+--      All player names (except in roster changes) are class-coloured and clickable.
+--      Join/leave messages are de-duplicated (Blizzard fires them multiple times).
+-- Architecture:
+--      consumes ~80KB for a 1,000 player guild
+--      only fires on events
+--   To test:
+--      1. achieve toon name is clickable
+--      2. what to do if chat tab doesn't exist, craete one?
+--      3. all toon names are class coloured
 
 local TARGET_TAB_NAME = "Guild"
 local targetFrame = nil
+
+-- Used to suppress duplicate join/leave messages
 local lastJoinLeaveMessage = nil
 local lastJoinLeaveTime = 0
 
+-- Cache: fullName → classFilename
+local nameClassCache = {}
+
+------------------------------------------------------------
+-- Find the chat frame named "Guild"
+------------------------------------------------------------
 local function FindTargetFrame()
     for i = 1, NUM_CHAT_WINDOWS do
-        local name = GetChatWindowInfo(i)
-        if name == TARGET_TAB_NAME then
+        if GetChatWindowInfo(i) == TARGET_TAB_NAME then
             return _G["ChatFrame"..i]
         end
     end
     return nil
 end
 
-local function FilterGuildMessages(self, event, msg, sender, ...)
-    if not targetFrame then
-        targetFrame = FindTargetFrame()
+------------------------------------------------------------
+-- Create the Guild tab if it doesn't exist
+------------------------------------------------------------
+local function EnsureGuildTabExists()
+    local frame = FindTargetFrame()
+    if frame then return frame end
+
+    frame = FCF_OpenNewWindow(TARGET_TAB_NAME)
+    FCF_SetLocked(frame, true)
+    return frame
+end
+
+------------------------------------------------------------
+-- Update name → class cache when roster changes
+------------------------------------------------------------
+local function RefreshNameCache()
+    if not IsInGuild() then return end
+
+    wipe(nameClassCache)
+    local num = GetNumGuildMembers()
+
+    for i = 1, num do
+        local name, _, _, _, _, _, _, _, _, _, classFilename = GetGuildRosterInfo(i)
+        if name and classFilename then
+            nameClassCache[name] = classFilename
+        end
     end
-    if not targetFrame then
-        return false
+end
+
+------------------------------------------------------------
+-- Build a class-coloured clickable player link
+------------------------------------------------------------
+local function GetColoredPlayerLink(fullName)
+    local nameOnly = fullName:gsub("%-.*", "") -- hide realm in display
+    local class = nameClassCache[fullName]
+
+    if class and RAID_CLASS_COLORS[class] then
+        local hex = RAID_CLASS_COLORS[class].colorStr
+        return "|Hplayer:" .. fullName .. "|h|c" .. hex .. nameOnly .. "|r|h"
     end
 
-    -- Ignore MOTD echoes in CHAT_MSG_SYSTEM
+    -- fallback: clickable but white
+    return "|Hplayer:" .. fullName .. "|h[" .. nameOnly .. "]|h"
+end
+
+------------------------------------------------------------
+-- Replace all player names in a message with clickable links
+-- (Used for roster changes where two names may appear)
+------------------------------------------------------------
+local function ReplaceNamesWithLinks(msg)
+    for fullName in pairs(nameClassCache) do
+        local nameOnly = fullName:gsub("%-.*", "")
+        msg = msg:gsub(nameOnly, GetColoredPlayerLink(fullName))
+    end
+    return msg
+end
+
+------------------------------------------------------------
+-- Main filter: reroute and reformat guild-related messages
+------------------------------------------------------------
+local function FilterGuildMessages(self, event, msg, sender, ...)
+    -- Ensure the Guild tab exists
+    if not targetFrame then
+        targetFrame = FindTargetFrame() or EnsureGuildTabExists()
+    end
+
+    --------------------------------------------------------
+    -- Ignore MOTD echoes (we handle the real MOTD below)
+    --------------------------------------------------------
     if msg:find("Message of the Day") then
         return true
     end
 
-    -- 2. Guild join/leave (clickable names)
+    --------------------------------------------------------
+    -- Join / Leave messages
+    --------------------------------------------------------
     local joinName = msg:match("^(.-) has joined the guild")
     local leaveName = msg:match("^(.-) has left the guild")
     local name = joinName or leaveName
-    if name then
-        local formatted
-        if joinName then
-            formatted = GetColoredPlayerLink(name) .. " has joined the guild."
-        else
-            formatted = GetColoredPlayerLink(name) .. " has left the guild."
-        end
 
-        -- Prevent duplicates (Blizzard fires this message multiple times)
+    if name then
+        local formatted = GetColoredPlayerLink(name) ..
+            (joinName and " has joined the guild." or " has left the guild.")
+
+        -- Prevent duplicates
         local now = GetTime()
         if formatted == lastJoinLeaveMessage and (now - lastJoinLeaveTime) < 1 then
-            return true -- suppress duplicate
+            return true
         end
 
         lastJoinLeaveMessage = formatted
@@ -56,21 +129,27 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         return true
     end
 
-    -- 3. Guild achievements (clickable names + clickable achievement)
+    --------------------------------------------------------
+    -- Achievement messages
+    --------------------------------------------------------
     if event == "CHAT_MSG_GUILD_ACHIEVEMENT" then
         local player = sender or "Unknown"
         local achievementLink = ...
-        -- Create clickable player link
-        local playerLink = GetColoredPlayerLink(player)
-        -- Format exactly like Blizzard
-        local formatted = format(msg, playerLink, achievementLink)
+        local formatted = format(msg, GetColoredPlayerLink(player), achievementLink)
+
         targetFrame:AddMessage(formatted)
         return true
     end
 
-    -- 4. Roster changes (plain text, as requested)
-    if msg:find("promoted") or msg:find("demoted") or msg:find("changed the guild rank")
-       or msg:find("changed the Officer Note") or msg:find("changed the Public Note") then
+    --------------------------------------------------------
+    -- Roster changes (now clickable + class coloured)
+    --------------------------------------------------------
+    if msg:find("promoted") or msg:find("demoted")
+       or msg:find("changed the guild rank")
+       or msg:find("changed the Officer Note")
+       or msg:find("changed the Public Note") then
+
+        msg = ReplaceNamesWithLinks(msg)
         targetFrame:AddMessage(msg)
         return true
     end
@@ -78,32 +157,24 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
     return false
 end
 
-local function GetColoredPlayerLink(fullName)
-    -- fullName may include realm, e.g. "Arcette-Jubei'Thos"
-    local nameOnly = fullName:gsub("%-.*", "") -- for display only
-    -- Find class from guild roster
-    if IsInGuild() then
-        local num = GetNumGuildMembers()
-        for i = 1, num do
-            local rosterName, _, _, _, _, _, _, _, _, _, classFilename = GetGuildRosterInfo(i)
-            if rosterName == fullName then
-                local color = RAID_CLASS_COLORS[classFilename]
-                if color then
-                    local hex = color.colorStr -- Blizzard provides the hex code
-                    return "|Hplayer:" .. fullName .. "|h|c" .. hex .. nameOnly .. "|r|h"
-                end
-            end
-        end
-    end
-    -- fallback: clickable but white
-    return "|Hplayer:" .. fullName .. "|h[" .. nameOnly .. "]|h"
-end
-
+------------------------------------------------------------
+-- Hook chat events
+------------------------------------------------------------
 ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", FilterGuildMessages)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD_ACHIEVEMENT", FilterGuildMessages)
 
-local f = CreateFrame("Frame")
-f:RegisterEvent("GUILD_MOTD")
-f:SetScript("OnEvent", function(_, _, msg)
+------------------------------------------------------------
+-- Refresh name cache when roster updates
+------------------------------------------------------------
+local rosterFrame = CreateFrame("Frame")
+rosterFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
+rosterFrame:SetScript("OnEvent", RefreshNameCache)
+
+------------------------------------------------------------
+-- Show the real MOTD in the Guild tab
+------------------------------------------------------------
+local motdFrame = CreateFrame("Frame")
+motdFrame:RegisterEvent("GUILD_MOTD")
+motdFrame:SetScript("OnEvent", function(_, _, msg)
     FilterGuildMessages(nil, "GUILD_MOTD", msg)
 end)

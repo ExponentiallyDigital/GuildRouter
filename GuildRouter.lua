@@ -481,7 +481,8 @@ SLASH_GRRESET1 = "/grreset"
 SlashCmdList["GRRESET"] = function()
     if ElvUI then
         ------------------------------------------------
-        -- ElvUI: do NOT close/recreate, just repair
+        -- ElvUI: DO NOT DELETE OR RECREATE
+        -- Just find the existing tab and repair it
         ------------------------------------------------
         local frame
         for i = 1, NUM_CHAT_WINDOWS do
@@ -491,16 +492,35 @@ SlashCmdList["GRRESET"] = function()
             end
         end
 
-        if frame then
-            targetFrame = frame
-            ConfigureGuildTab(targetFrame)
-            print("|cff00ff00GuildRouter:|r Guild tab (ElvUI) reconfigured in place.")
-        else
-            print("|cffff8800GuildRouter:|r No Guild tab found under ElvUI; create it once manually, then /grreset.")
+        if not frame then
+            print("|cffff0000GuildRouter:|r Under ElvUI, the Guild tab must be created once manually.")
+            print("Open Chat → Create New Window → Name it: Guild")
+            return
         end
 
+        targetFrame = frame
+        ConfigureGuildTab(targetFrame)
+
+        print("|cff00ff00GuildRouter:|r Guild tab repaired (ElvUI).")
         return
     end
+
+    ------------------------------------------------
+    -- Blizzard UI: full delete + recreate
+    ------------------------------------------------
+    for i = 1, NUM_CHAT_WINDOWS do
+        if GetChatWindowInfo(i) == TARGET_TAB_NAME then
+            FCF_Close(_G["ChatFrame"..i])
+            break
+        end
+    end
+
+    targetFrame = EnsureGuildTabExists()
+    ConfigureGuildTab(targetFrame)
+    SafeDock(targetFrame)
+
+    print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
+end
 
     ------------------------------------------------
     -- Blizzard UI: full delete + recreate

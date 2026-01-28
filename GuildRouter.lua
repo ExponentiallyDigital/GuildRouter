@@ -440,15 +440,23 @@ SlashCmdList["GRRESET"] = function()
 
     targetFrame = EnsureGuildTabExists()
 
-    -- NEW: reapply message groups even if the tab already existed
+    -- Reapply message groups even if the tab already existed
     ConfigureGuildTab(targetFrame)
 
-    -- NEW: force docking AFTER configuration
+    -- Force the frame to be dockable again (ElvUI-safe)
+    targetFrame.isDockable = 1
+    targetFrame.isLocked = 0
+
+    -- Register with the dock manager
+    if GeneralDockManager and GeneralDockManager.AddChatFrame then
+        GeneralDockManager:AddChatFrame(targetFrame)
+    end
+
+    -- Now dock it
     SafeDock(targetFrame)
 
     print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
 end
-
 
 ------------------------------------------------------------
 -- /grdelete — permanently delete the Guild tab

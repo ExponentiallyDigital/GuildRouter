@@ -36,10 +36,10 @@ local gsub              = string.gsub
 local wipe              = wipe
 
 ------------------------------------------------------------
--- Presence announcement settings
+-- Presence announcement settings from SavedVariables on login
 ------------------------------------------------------------
-local GRPresenceMode = "guild-only"   -- "guild-only", "all", "off"
-local GRPresenceTrace = false
+local GRPresenceMode
+local GRPresenceTrace
 
 ------------------------------------------------------------
 -- State
@@ -360,6 +360,29 @@ end)
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("PLAYER_LOGIN")
 initFrame:SetScript("OnEvent", function()
+
+    ------------------------------------------------------------
+    -- Load SavedVariables (create table if missing)
+    ------------------------------------------------------------
+    GuildRouterDB = GuildRouterDB or {}
+
+    -- Default presence mode: guild-only
+    if GuildRouterDB.presenceMode == nil then
+        GuildRouterDB.presenceMode = "guild-only"
+    end
+
+    -- Default trace mode: off
+    if GuildRouterDB.presenceTrace == nil then
+        GuildRouterDB.presenceTrace = false
+    end
+
+    -- Apply to runtime
+    GRPresenceMode  = GuildRouterDB.presenceMode
+    GRPresenceTrace = GuildRouterDB.presenceTrace
+
+    ------------------------------------------------------------
+    -- Existing startup logic
+    ------------------------------------------------------------
     targetFrame = FindTargetFrame() or EnsureGuildTabExists()
     RefreshNameCache()
 end)
@@ -481,18 +504,25 @@ SlashCmdList["GRPRESENCE"] = function(arg)
 
     if arg == "guild-only" then
         GRPresenceMode = "guild-only"
+        GuildRouterDB.presenceMode = "guild-only"
         print("|cff00ff00GuildRouter:|r Presence mode set to guild-only.")
         return
+
     elseif arg == "all" then
         GRPresenceMode = "all"
+        GuildRouterDB.presenceMode = "all"
         print("|cff00ff00GuildRouter:|r Presence mode set to all.")
         return
+
     elseif arg == "off" then
         GRPresenceMode = "off"
+        GuildRouterDB.presenceMode = "off"
         print("|cff00ff00GuildRouter:|r Presence announcements disabled.")
         return
+
     elseif arg == "trace" then
         GRPresenceTrace = not GRPresenceTrace
+        GuildRouterDB.presenceTrace = GRPresenceTrace
         print("|cff00ff00GuildRouter Trace:|r " .. (GRPresenceTrace and "ON" or "OFF"))
         return
     end
@@ -524,14 +554,13 @@ end
 ------------------------------------------------------------
 SLASH_GRHELP1 = "/grhelp"
 SlashCmdList["GRHELP"] = function()
-    print("|cff00ff00GuildRouter Commands:|r")
+    print("|cff00ff00GuildRouter by ArcNineOhNine, commands:|r")
     print(" /grreset    - Delete and recreate the Guild tab")
-    print(" /grdock     - Dock the Guild tab if it’s not visible")
+    print(" /grdock     - Dock the Guild tab if not visible")
     print(" /grfix      - Repair Guild tab message groups and dock it")
     print(" /grsources  - Show message groups/channels for the Guild tab")
-    print(" Debug")
     print(" /grtest     - Simulate guild events (join, leave, promote, demote, note, ach)")
-    print(" /grpresence - Control login/logout announcements (guild-only, all, off, trace)")
+    print(" /grpresence - toggle login/logout announcements (guild-only, all, off, trace)")
     print(" /grdebug    - Toggle debug mode for unhandled system messages")
     print(" /grhelp     - Show this command list")
 end

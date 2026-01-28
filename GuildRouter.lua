@@ -439,10 +439,16 @@ SlashCmdList["GRRESET"] = function()
     end
 
     targetFrame = EnsureGuildTabExists()
+
+    -- NEW: reapply message groups even if the tab already existed
+    ConfigureGuildTab(targetFrame)
+
+    -- NEW: force docking AFTER configuration
     SafeDock(targetFrame)
 
     print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
 end
+
 
 ------------------------------------------------------------
 -- /grdelete — permanently delete the Guild tab

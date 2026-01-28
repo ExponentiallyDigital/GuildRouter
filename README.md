@@ -37,7 +37,9 @@ GuildRouter provides several slash commands to manage the Guild tab, debug routi
 
 `/grhelp` Displays a list of all available GuildRouter commands.
 
-`/grreset` Deletes the existing Guild chat tab (if present) and recreates it with the correct message groups and safe docking. Use this if the tab disappears, becomes undocked, or is misconfigured.
+`/grreset` Recreates the existing Guild chat tab with the correct message groups and safe docking. Use this if the tab disappears, becomes undocked, or is misconfigured.
+
+`/grdelete` Deletes the existing Guild chat tab (if present). NB there is NO confirmation, it just gets deleted.
 
 `/grfix` Repairs the Guild tab’s message groups and re‑docks it safely. This does not delete the tab, it simply restores the correct configuration.
 

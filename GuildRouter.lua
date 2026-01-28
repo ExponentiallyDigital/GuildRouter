@@ -479,7 +479,32 @@ end)
 ------------------------------------------------------------
 SLASH_GRRESET1 = "/grreset"
 SlashCmdList["GRRESET"] = function()
-    -- Delete existing Guild tab if present
+    if ElvUI then
+        ------------------------------------------------
+        -- ElvUI: do NOT close/recreate, just repair
+        ------------------------------------------------
+        local frame
+        for i = 1, NUM_CHAT_WINDOWS do
+            if GetChatWindowInfo(i) == TARGET_TAB_NAME then
+                frame = _G["ChatFrame"..i]
+                break
+            end
+        end
+
+        if frame then
+            targetFrame = frame
+            ConfigureGuildTab(targetFrame)
+            print("|cff00ff00GuildRouter:|r Guild tab (ElvUI) reconfigured in place.")
+        else
+            print("|cffff8800GuildRouter:|r No Guild tab found under ElvUI; create it once manually, then /grreset.")
+        end
+
+        return
+    end
+
+    ------------------------------------------------
+    -- Blizzard UI: full delete + recreate
+    ------------------------------------------------
     for i = 1, NUM_CHAT_WINDOWS do
         if GetChatWindowInfo(i) == TARGET_TAB_NAME then
             FCF_Close(_G["ChatFrame"..i])
@@ -487,37 +512,21 @@ SlashCmdList["GRRESET"] = function()
         end
     end
 
-    -- Recreate
     targetFrame = EnsureGuildTabExists()
-
-    -- Reapply message groups
     ConfigureGuildTab(targetFrame)
-
-    -- Make sure it's dockable
     targetFrame.isDockable = 1
-    targetFrame.isLocked = 0
+    targetFrame.isLocked   = 0
 
-    -- Register with dock manager
     if GeneralDockManager and GeneralDockManager.AddChatFrame then
         GeneralDockManager:AddChatFrame(targetFrame)
     end
 
-    -- Dock it
     SafeDock(targetFrame)
-
-    ------------------------------------------------------------
-    -- Reorder depending on UI (Blizzard vs ElvUI)
-    ------------------------------------------------------------
-    if ElvUI then
-        -- ElvUI path
-        MoveTabToEnd_ElvUI(TARGET_TAB_NAME)
-    else
-        -- Blizzard path
-        MoveTabToEnd_Blizzard(targetFrame)
-    end
+    -- (optional Blizzard-only reordering here)
 
     print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
 end
+
 
 ------------------------------------------------------------
 -- /grdelete — permanently delete the Guild tab

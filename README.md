@@ -31,6 +31,8 @@ While you can move standard guild chat to a new tab using default Blizzard setti
 
 This addon works out of the box. Upon loading, it will check for a chat tab named **"Guild"**. If it doesn't find one, it will be created and populated with Guild, Officer, Guild announcement, and Blizzard system channels.
 
+If you are using ElvUi, you may need to drag the ‘Guild’ tab once to your preferred position. After that, if you ever delete or need to reset the tab, you can use /grreset and it should retain the previous ordering sequence.
+
 ## Command Line Options
 
 GuildRouter provides several slash commands to manage the Guild tab, debug routing, test events, and control presence announcements. None are needed for installation or operation.

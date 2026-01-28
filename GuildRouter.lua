@@ -242,18 +242,21 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         ------------------------------------------------------------
         -- Login / Logout announcements (presence routing)
         ------------------------------------------------------------
-        -- These patterns match:
-        --  Frank has come online
-        --  Frank has come online.
-        --  Frank has come online. [Invite]
-        --  [Frank] has come online.
-        --  |Hplayer:Frank|h[Frank]|h has come online.
-        --  Frank-SomeRealm has come online. [Invite]
         local nameOnline  = msg:match("^.-([%w%-]+)%]? has come online")
         local nameOffline = msg:match("^.-([%w%-]+)%]? has gone offline")
 
         local name = nameOnline or nameOffline
         if name then
+
+            ------------------------------------------------------------
+            -- Normalize to fullName with realm
+            ------------------------------------------------------------
+            local fullName = name
+            if not name:find("-") then
+                local realm = gsub(GetRealmName(), "%s+", "")
+                fullName = name .. "-" .. realm
+            end
+
             ------------------------------------------------------------
             -- Presence mode: off
             ------------------------------------------------------------
@@ -267,7 +270,7 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             ------------------------------------------------------------
             -- Guild-only mode: ignore non-guild members
             ------------------------------------------------------------
-            local isGuild = IsGuildMember(name)
+            local isGuild = IsGuildMember(fullName)
             if GRPresenceMode == "guild-only" and not isGuild then
                 if GRPresenceTrace then
                     print("|cffff8800[GR Trace]|r Presence ignored (not guild): " .. msg)
@@ -287,13 +290,13 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
 
             local formatted
             if nameOnline then
-                formatted = GetColoredPlayerLink(name) .. " has come " .. status .. "."
+                formatted = GetColoredPlayerLink(fullName) .. " has come " .. status .. "."
             else
-                formatted = GetColoredPlayerLink(name) .. " has gone " .. status .. "."
+                formatted = GetColoredPlayerLink(fullName) .. " has gone " .. status .. "."
             end
 
             ------------------------------------------------------------
-            -- De-duplicate (Blizzard sometimes fires twice)
+            -- De-duplicate
             ------------------------------------------------------------
             local now = GetTime()
             if formatted == lastJoinLeaveMessage and (now - lastJoinLeaveTime) < 1 then
@@ -313,6 +316,7 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             targetFrame:AddMessage(formatted)
             return true
         end
+
 
         -- Roster changes
         local actor, target

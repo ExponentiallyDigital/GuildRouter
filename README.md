@@ -6,7 +6,7 @@ A "set and forget," high-performance, lightweight World of Warcraft addon that r
 
 **TL;DR** - be better connected with your guild.
 
-Stop losing track of your guild's activity in a flood of trade chat, raid alerts, and world messages. **GuildRouter** intercepts system messages that usually vanish beneath the flood and organizes them into a clean, readable stream.
+Stop losing track of your guild's activity in a flood of trade chat, raid alerts, and world messages. **GuildRouter** intercepts system messages that usually vanish beneath the flood and organises them into a clean, readable stream.
 
 While you can move standard guild chat to a new tab using default Blizzard settings, you lose the context of important events like achievements and roster changes. By default, these are mixed into your main chat frame where they rapidly get buried, especially on busy realms or during intense gaming.
 
@@ -19,7 +19,7 @@ While you can move standard guild chat to a new tab using default Blizzard setti
 - **Roster change tracking:** captures promotions, demotions, and note changes (officer & public)
 - **MOTD integration:** routes the guild message of the day to the tab upon login and update
 - **Anti-spam engine:** uses monotonic game-time tracking to de-duplicate rapid-fire system messages
-- **Performance:** built with localized globals and memory-efficient string escaping to ensure zero impact on your FPS
+- **Performance:** built with localised globals and memory-efficient string escaping to ensure zero impact on your FPS
 - **Efficiency:** consumes ~80KB for a 1,000 player guild and only fires on system events
 
 ## Installation

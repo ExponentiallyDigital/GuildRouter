@@ -202,11 +202,11 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         targetFrame = FindTargetFrame() or EnsureGuildTabExists()
     end
 
-    -- Real MOTD
-    if event == "GUILD_MOTD" then
-        targetFrame:AddMessage(msg)
-        return true
-    end
+--    -- Real MOTD
+--    if event == "GUILD_MOTD" then
+--        targetFrame:AddMessage(msg)
+--        return true
+--    end
 
     -- System messages
     if event == "CHAT_MSG_SYSTEM" then
@@ -242,12 +242,21 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         ------------------------------------------------------------
         -- Login / Logout announcements (presence routing)
         ------------------------------------------------------------
-        local nameOnline  = msg:match("^.-([%w%-]+)%]? has come online")
-        local nameOffline = msg:match("^.-([%w%-]+)%]? has gone offline")
+
+        -- Match hyperlink format first (ElvUI, Blizzard modern)
+        local nameOnline  = msg:match("|Hplayer:([^:|]+).* has come online")
+        local nameOffline = msg:match("|Hplayer:([^:|]+).* has gone offline")
+
+        -- Fallback: plain text (older Blizzard format)
+        if not nameOnline then
+            nameOnline = msg:match("^([%w%-]+) has come online")
+        end
+        if not nameOffline then
+            nameOffline = msg:match("^([%w%-]+) has gone offline")
+        end
 
         local name = nameOnline or nameOffline
         if name then
-
             ------------------------------------------------------------
             -- Normalize to fullName with realm
             ------------------------------------------------------------

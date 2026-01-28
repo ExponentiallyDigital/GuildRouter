@@ -10,7 +10,7 @@
 --
 
 ------------------------------------------------------------
--- Local references (faster than global lookups)
+-- Local references
 ------------------------------------------------------------
 local TARGET_TAB_NAME = "Guild"
 
@@ -19,11 +19,14 @@ local NUM_CHAT_WINDOWS  = NUM_CHAT_WINDOWS
 local GetChatWindowInfo = GetChatWindowInfo
 local FCF_OpenNewWindow = FCF_OpenNewWindow
 local FCF_SetLocked     = FCF_SetLocked
+local FCF_Close         = FCF_Close
+local FCF_SelectDockFrame = FCF_SelectDockFrame
+local GeneralDockManager = GeneralDockManager
 
-local IsInGuild         = IsInGuild
-local GetNumGuildMembers= GetNumGuildMembers
-local GetGuildRosterInfo= GetGuildRosterInfo
-local RAID_CLASS_COLORS = RAID_CLASS_COLORS
+local IsInGuild          = IsInGuild
+local GetNumGuildMembers = GetNumGuildMembers
+local GetGuildRosterInfo = GetGuildRosterInfo
+local RAID_CLASS_COLORS  = RAID_CLASS_COLORS
 
 local GetTime           = GetTime
 local format            = string.format
@@ -31,6 +34,12 @@ local match             = string.match
 local find              = string.find
 local gsub              = string.gsub
 local wipe              = wipe
+
+------------------------------------------------------------
+-- Presence announcement settings
+------------------------------------------------------------
+local GRPresenceMode = "guild-only"   -- "guild-only", "all", "off"
+local GRPresenceTrace = false
 
 ------------------------------------------------------------
 -- State
@@ -57,6 +66,35 @@ local function FindTargetFrame()
 end
 
 ------------------------------------------------------------
+-- Safe docking (Blizzard + ElvUI compatible)
+------------------------------------------------------------
+local function SafeDock(frame)
+    if not frame then return end
+
+    frame:Show()
+    frame.isDocked = 1
+
+    if GeneralDockManager and GeneralDockManager.AddChatFrame then
+        GeneralDockManager:AddChatFrame(frame)
+    end
+
+    if FCF_SelectDockFrame then
+        FCF_SelectDockFrame(frame)
+    end
+end
+
+------------------------------------------------------------
+-- Configure the Guild tab ONLY when we create it
+------------------------------------------------------------
+local function ConfigureGuildTab(frame)
+    -- Message groups
+    ChatFrame_AddMessageGroup(frame, "SYSTEM")
+    ChatFrame_AddMessageGroup(frame, "GUILD")
+    ChatFrame_AddMessageGroup(frame, "OFFICER")
+    ChatFrame_AddMessageGroup(frame, "GUILD_ACHIEVEMENT")
+end
+
+------------------------------------------------------------
 -- Create the "Guild" tab if it doesn't exist
 ------------------------------------------------------------
 local function EnsureGuildTabExists()
@@ -65,31 +103,13 @@ local function EnsureGuildTabExists()
         return frame -- Do NOT modify existing tabs
     end
 
-    -- Create the tab
     frame = FCF_OpenNewWindow(TARGET_TAB_NAME)
     FCF_SetLocked(frame, true)
 
-    -- Configure it once
+    SafeDock(frame)
     ConfigureGuildTab(frame)
+
     return frame
-end
-
-
-------------------------------------------------------------
--- Configure the Guild tab ONLY when we create it
-------------------------------------------------------------
-local function ConfigureGuildTab(frame)
-    -- Enable guild chat
-    ChatFrame_AddChannel(frame, "Guild")
-
-    -- Enable officer chat (if player has permission)
-    ChatFrame_AddChannel(frame, "Officer")
-
-    -- Enable system messages
-    ChatFrame_AddMessageGroup(frame, "SYSTEM")
-
-    -- Enable guild achievements / announcements
-    ChatFrame_AddMessageGroup(frame, "GUILD_ACHIEVEMENT")
 end
 
 ------------------------------------------------------------
@@ -111,12 +131,10 @@ end
 
 ------------------------------------------------------------
 -- Build a class-coloured, clickable player link
--- fullName: "Name-Realm" (realm kept for whispering)
 ------------------------------------------------------------
 local function GetColoredPlayerLink(fullName)
     if not fullName then return "" end
 
-    -- Safe realm strip: "Name-Realm" -> "Name"
     local nameOnly = fullName:gsub("%-.*", "")
 
     local class = nameClassCache[fullName]
@@ -127,12 +145,11 @@ local function GetColoredPlayerLink(fullName)
         end
     end
 
-    -- Fallback: clickable but white
     return "|Hplayer:" .. fullName .. "|h[" .. nameOnly .. "]|h"
 end
 
 ------------------------------------------------------------
--- Escape Lua pattern characters in a name (for safe gsub)
+-- Escape Lua pattern characters in a name
 ------------------------------------------------------------
 local function EscapePattern(text)
     return gsub(text, "(%W)", "%%%1")
@@ -140,7 +157,6 @@ end
 
 ------------------------------------------------------------
 -- Replace two plain names in a message with clickable links
--- (Used for roster changes: actor + target)
 ------------------------------------------------------------
 local function LinkTwoNames(msg, name1, name2)
     if name1 then
@@ -153,34 +169,56 @@ local function LinkTwoNames(msg, name1, name2)
 end
 
 ------------------------------------------------------------
+-- Debug: unhandled system messages
+------------------------------------------------------------
+local GRDebugEnabled = false
+local lastDebugMsg = nil
+
+SLASH_GRDEBUG1 = "/grdebug"
+SlashCmdList["GRDEBUG"] = function()
+    GRDebugEnabled = not GRDebugEnabled
+    print("|cff00ff00GuildRouter Debug:|r " .. (GRDebugEnabled and "ON" or "OFF"))
+end
+
+local function DebugUnhandledSystemMessage(msg)
+    if not GRDebugEnabled then return end
+    if msg == lastDebugMsg then return end
+    lastDebugMsg = msg
+    print("|cffff8800[GR Debug]|r Unhandled system message: " .. msg)
+end
+
+------------------------------------------------------------
+-- Guild member check for login/out routing
+------------------------------------------------------------
+local function IsGuildMember(fullName)
+    return nameClassCache[fullName] ~= nil
+end
+
+------------------------------------------------------------
 -- Core filter: reroute and reformat guild-related messages
 ------------------------------------------------------------
 local function FilterGuildMessages(self, event, msg, sender, ...)
-    -- Ensure the Guild tab exists
     if not targetFrame then
         targetFrame = FindTargetFrame() or EnsureGuildTabExists()
     end
 
-    --------------------------------------------------------
-    -- Real MOTD (sent manually from GUILD_MOTD event)
-    --------------------------------------------------------
+    -- Real MOTD
     if event == "GUILD_MOTD" then
         targetFrame:AddMessage(msg)
         return true
     end
 
-    --------------------------------------------------------
-    -- System messages (join/leave, roster changes, MOTD echo)
-    --------------------------------------------------------
+    -- System messages
     if event == "CHAT_MSG_SYSTEM" then
-        -- Suppress MOTD echo
+        -- Suppress Blizzard's system echo of guild achievements
+        if msg:find("has earned the achievement") then
+            return true
+        end
         if find(msg, "Message of the Day") then
             return true
         end
 
-        ----------------------------------------------------
         -- Join / Leave
-        ----------------------------------------------------
         local joinName  = match(msg, "^(.-) has joined the guild")
         local leaveName = match(msg, "^(.-) has left the guild")
         local name = joinName or leaveName
@@ -189,7 +227,6 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             local formatted = GetColoredPlayerLink(name) ..
                 (joinName and " has joined the guild." or " has left the guild.")
 
-            -- Prevent duplicates fired close together
             local now = GetTime()
             if formatted == lastJoinLeaveMessage and (now - lastJoinLeaveTime) < 1 then
                 return true
@@ -202,40 +239,75 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             return true
         end
 
-        ----------------------------------------------------
-        -- Roster changes (actor + target names)
-        ----------------------------------------------------
-        local actor, target
+        ------------------------------------------------------------
+        -- Login / Logout announcements (presence routing)
+        ------------------------------------------------------------
+        local onlineName  = match(msg, "^(.-) has come online%.$")
+        local offlineName = match(msg, "^(.-) has gone offline%.$")
 
-        -- Promote: "A has promoted B to rank ..."
+        local name = onlineName or offlineName
+        if name then
+            -- Presence mode: off
+            if GRPresenceMode == "off" then
+                if GRPresenceTrace then
+                    print("|cffff8800[GR Trace]|r Presence ignored (mode=off): " .. msg)
+                end
+                return false
+            end
+
+            local isGuild = IsGuildMember(name)
+
+            -- Presence mode: guild-only
+            if GRPresenceMode == "guild-only" and not isGuild then
+                if GRPresenceTrace then
+                    print("|cffff8800[GR Trace]|r Presence ignored (not guild): " .. msg)
+                end
+                return false
+            end
+
+            -- Presence mode: all OR guild-only + guild member
+            if GRPresenceTrace then
+                print("|cff00ff00[GR Trace]|r Presence routed: " .. msg)
+            end
+
+            local formatted = GetColoredPlayerLink(name) ..
+                (onlineName and " has come online." or " has gone offline.")
+
+            -- De-duplicate
+            local now = GetTime()
+            if formatted == lastJoinLeaveMessage and (now - lastJoinLeaveTime) < 1 then
+                return true
+            end
+
+            lastJoinLeaveMessage = formatted
+            lastJoinLeaveTime    = now
+
+            targetFrame:AddMessage(formatted)
+            return true
+        end
+
+        -- Roster changes
+        local actor, target
         actor, target = match(msg, "^(.-) has promoted (.-) to ")
         if actor and target then
             targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
             return true
         end
-
-        -- Demote: "A has demoted B to rank ..."
         actor, target = match(msg, "^(.-) has demoted (.-) to ")
         if actor and target then
             targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
             return true
         end
-
-        -- Rank change: "A has changed the guild rank of B from ..."
         actor, target = match(msg, "^(.-) has changed the guild rank of (.-) from ")
         if actor and target then
             targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
             return true
         end
-
-        -- Officer note: "A has changed the Officer Note for B."
         actor, target = match(msg, "^(.-) has changed the Officer Note for (.-)%.")
         if actor and target then
             targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
             return true
         end
-
-        -- Public note: "A has changed the Public Note for B."
         actor, target = match(msg, "^(.-) has changed the Public Note for (.-)%.")
         if actor and target then
             targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
@@ -243,9 +315,7 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         end
     end
 
-    --------------------------------------------------------
     -- Guild achievements
-    --------------------------------------------------------
     if event == "CHAT_MSG_GUILD_ACHIEVEMENT" then
         local player = sender or "Unknown"
         local achievementLink = ...
@@ -254,11 +324,11 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         targetFrame:AddMessage(formatted)
         return true
     end
-    
-    -- Nothing matched, let WoW handle it normally
+
     if DebugUnhandledSystemMessage then
         DebugUnhandledSystemMessage(msg)
     end
+
     return false
 end
 
@@ -285,44 +355,20 @@ motdFrame:SetScript("OnEvent", function(_, _, msg)
 end)
 
 ------------------------------------------------------------
--- Create the Guild tab immediately on addon load
+-- Auto-create Guild tab on login
 ------------------------------------------------------------
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("PLAYER_LOGIN")
 initFrame:SetScript("OnEvent", function()
-    -- Ensure the tab exists
     targetFrame = FindTargetFrame() or EnsureGuildTabExists()
-    -- refresh name cache
     RefreshNameCache()
 end)
-
-------------------------------------------------------------
--- Debug Mode
--- /grdebug toggles printing unhandled system messages
-------------------------------------------------------------
-local GRDebugEnabled = false
-local lastDebugMsg = nil
-
-SLASH_GRDEBUG1 = "/grdebug"
-SlashCmdList["GRDEBUG"] = function()
-    GRDebugEnabled = not GRDebugEnabled
-    print("|cff00ff00GuildRouter Debug:|r " .. (GRDebugEnabled and "ON" or "OFF"))
-end
-
--- Debug hook: prints unhandled CHAT_MSG_SYSTEM lines
-local function DebugUnhandledSystemMessage(msg)
-    if not GRDebugEnabled then return end
-    if msg == lastDebugMsg then return end -- avoid spam
-    lastDebugMsg = msg
-    print("|cffff8800[GR Debug]|r Unhandled system message: " .. msg)
-end
 
 ------------------------------------------------------------
 -- /grreset — delete + recreate the Guild tab
 ------------------------------------------------------------
 SLASH_GRRESET1 = "/grreset"
 SlashCmdList["GRRESET"] = function()
-    -- Find and close the Guild tab if it exists
     for i = 1, NUM_CHAT_WINDOWS do
         if GetChatWindowInfo(i) == TARGET_TAB_NAME then
             FCF_Close(_G["ChatFrame"..i])
@@ -330,13 +376,14 @@ SlashCmdList["GRRESET"] = function()
         end
     end
 
-    -- Recreate it cleanly
     targetFrame = EnsureGuildTabExists()
+    SafeDock(targetFrame)
+
     print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
 end
 
 ------------------------------------------------------------
--- /grsources — list message groups the Guild tab receives
+-- /grsources — reliable message group listing (Blizzard + ElvUI)
 ------------------------------------------------------------
 SLASH_GRSOURCES1 = "/grsources"
 SlashCmdList["GRSOURCES"] = function()
@@ -348,18 +395,27 @@ SlashCmdList["GRSOURCES"] = function()
 
     print("|cff00ff00GuildRouter Sources for 'Guild' tab:|r")
 
-    -- Message groups (SYSTEM, GUILD_ACHIEVEMENT, etc.)
-    for group, enabled in pairs(frame.messageTypeList or {}) do
-        if enabled then
+    -- The message groups we care about
+    local groups = {
+        "SYSTEM",
+        "GUILD",
+        "OFFICER",
+        "GUILD_ACHIEVEMENT",
+    }
+
+    local found = false
+    for _, group in ipairs(groups) do
+        if ChatFrame_ContainsMessageGroup(frame, group) then
             print("  • Message Group: " .. group)
+            found = true
         end
     end
 
-    -- Channels (Guild, Officer)
-    for _, channel in ipairs(frame.channelList or {}) do
-        print("  • Channel: " .. channel)
+    if not found then
+        print("  • (No message groups enabled)")
     end
 end
+
 
 ------------------------------------------------------------
 -- /grfix — repair Guild tab message groups
@@ -368,15 +424,12 @@ SLASH_GRFIX1 = "/grfix"
 SlashCmdList["GRFIX"] = function()
     local frame = FindTargetFrame() or EnsureGuildTabExists()
 
-    -- Core system messages
     ChatFrame_AddMessageGroup(frame, "SYSTEM")
-
-    -- Guild chat + officer chat
     ChatFrame_AddMessageGroup(frame, "GUILD")
     ChatFrame_AddMessageGroup(frame, "OFFICER")
-
-    -- Guild achievements / announcements
     ChatFrame_AddMessageGroup(frame, "GUILD_ACHIEVEMENT")
+
+    SafeDock(frame)
 
     print("|cff00ff00GuildRouter:|r Guild tab sources repaired.")
 end
@@ -389,23 +442,23 @@ SlashCmdList["GRTEST"] = function(arg)
     local frame = FindTargetFrame() or EnsureGuildTabExists()
 
     if arg == "join" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has joined the guild.")
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has joined the guild.")
         print("|cff00ff00GR Test:|r join fired.")
     elseif arg == "leave" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has left the guild.")
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has left the guild.")
         print("|cff00ff00GR Test:|r leave fired.")
     elseif arg == "promote" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has promoted Tankadin to rank Member.")
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has promoted LeeroyJenkins to rank Member.")
         print("|cff00ff00GR Test:|r promote fired.")
     elseif arg == "demote" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has demoted Tankadin to rank Initiate.")
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has demoted LeeroyJenkins to rank Initiate.")
         print("|cff00ff00GR Test:|r demote fired.")
     elseif arg == "note" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "Arcette has changed the Officer Note for Tankadin.")
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has changed the Officer Note for LeeroyJenkins.")
         print("|cff00ff00GR Test:|r officer note fired.")
     elseif arg == "ach" then
         FilterGuildMessages(nil, "CHAT_MSG_GUILD_ACHIEVEMENT",
-            "%s has earned the achievement %s!", "Arcette-Jubei'Thos",
+            "%s has earned the achievement %s!", "ArcNineOhNine-Proudmoore",
             "|cffffff00|Hachievement:6:Player-1234-00000000:1:1:1:1:4294967295:4294967295:4294967295:4294967295|h[Level 10]|h|r")
         print("|cff00ff00GR Test:|r achievement fired.")
     else
@@ -420,7 +473,39 @@ SlashCmdList["GRTEST"] = function(arg)
 end
 
 ------------------------------------------------------------
--- /grdock — safely dock the Guild tab (ElvUI compatible)
+-- /grpresence — control presence announcements
+------------------------------------------------------------
+SLASH_GRPRESENCE1 = "/grpresence"
+SlashCmdList["GRPRESENCE"] = function(arg)
+    arg = arg and arg:lower() or ""
+
+    if arg == "guild-only" then
+        GRPresenceMode = "guild-only"
+        print("|cff00ff00GuildRouter:|r Presence mode set to guild-only.")
+        return
+    elseif arg == "all" then
+        GRPresenceMode = "all"
+        print("|cff00ff00GuildRouter:|r Presence mode set to all.")
+        return
+    elseif arg == "off" then
+        GRPresenceMode = "off"
+        print("|cff00ff00GuildRouter:|r Presence announcements disabled.")
+        return
+    elseif arg == "trace" then
+        GRPresenceTrace = not GRPresenceTrace
+        print("|cff00ff00GuildRouter Trace:|r " .. (GRPresenceTrace and "ON" or "OFF"))
+        return
+    end
+
+    print("|cff00ff00GuildRouter Presence Options:|r")
+    print("  /grpresence guild-only  - Only guild members")
+    print("  /grpresence all         - Everyone")
+    print("  /grpresence off         - Disable presence announcements")
+    print("  /grpresence trace       - Toggle trace output")
+end
+
+------------------------------------------------------------
+-- /grdock — safely dock the Guild tab
 ------------------------------------------------------------
 SLASH_GRDOCK1 = "/grdock"
 SlashCmdList["GRDOCK"] = function()
@@ -430,23 +515,8 @@ SlashCmdList["GRDOCK"] = function()
         return
     end
 
-    -- Ensure the frame is shown
-    frame:Show()
-
-    -- Mark it as docked (Blizzard + ElvUI compatible)
-    frame.isDocked = 1
-
-    -- Add to the dock manager safely
-    if GeneralDockManager and GeneralDockManager.AddChatFrame then
-        GeneralDockManager:AddChatFrame(frame)
-    end
-
-    -- Select it so the tab becomes visible
-    if FCF_SelectDockFrame then
-        FCF_SelectDockFrame(frame)
-    end
-
-    print("|cff00ff00GuildRouter:|r Guild tab docked safely.")
+    SafeDock(frame)
+    print("|cff00ff00GuildRouter:|r Guild tab docked.")
 end
 
 ------------------------------------------------------------
@@ -455,13 +525,13 @@ end
 SLASH_GRHELP1 = "/grhelp"
 SlashCmdList["GRHELP"] = function()
     print("|cff00ff00GuildRouter Commands:|r")
-
-    print("  /grdebug   - Toggle debug mode for unhandled system messages")
-    print("  /grdock    - redock/make Guild tab visible")
-    print("  /grreset   - Delete and recreate the Guild tab immediately")
-    print("  /grsources - Show which message groups the Guild tab receives")
-    print("  /grfix     - Repair Guild tab message groups and channels")
-    print("  /grtest    - Simulate guild events (use /grtest for list)")
-    print("  /grhelp    - Show this command list")
+    print(" /grreset    - Delete and recreate the Guild tab")
+    print(" /grdock     - Dock the Guild tab if it’s not visible")
+    print(" /grfix      - Repair Guild tab message groups and dock it")
+    print(" /grsources  - Show message groups/channels for the Guild tab")
+    print(" Debug")
+    print(" /grtest     - Simulate guild events (join, leave, promote, demote, note, ach)")
+    print(" /grpresence - Control login/logout announcements (guild-only, all, off, trace)")
+    print(" /grdebug    - Toggle debug mode for unhandled system messages")
+    print(" /grhelp     - Show this command list")
 end
-

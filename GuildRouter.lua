@@ -10,6 +10,7 @@
 -- Local references
 ------------------------------------------------------------
 local TARGET_TAB_NAME = "Guild"
+local isElvUI = (ElvUI ~= nil)
 
 local _G                = _G
 local NUM_CHAT_WINDOWS  = NUM_CHAT_WINDOWS
@@ -78,6 +79,53 @@ local function SafeDock(frame)
     if FCF_SelectDockFrame then
         FCF_SelectDockFrame(frame)
     end
+end
+
+------------------------------------------------------------
+-- Order tab when running without ElvUI
+------------------------------------------------------------
+local function MoveTabToEnd_Blizzard(frame)
+    local dock = GeneralDockManager.primary
+    if not dock or not dock.DOCKED_CHAT_FRAMES then return end
+
+    GeneralDockManager:UpdateTabs()
+
+    local index
+    for i, f in ipairs(dock.DOCKED_CHAT_FRAMES) do
+        if f == frame then
+            index = i
+            break
+        end
+    end
+
+    if index then
+        table.remove(dock.DOCKED_CHAT_FRAMES, index)
+        table.insert(dock.DOCKED_CHAT_FRAMES, frame)
+        GeneralDockManager:LayoutTabs()
+    end
+end
+
+------------------------------------------------------------
+-- Order tab when running with ElvUI
+------------------------------------------------------------
+local function MoveTabToEnd_ElvUI(tabName)
+    local E = ElvUI[1]
+    local db = ElvDB and ElvDB.chat and ElvDB.chat.chatHistoryTab
+    if not (E and db) then return end
+
+    -- Remove existing entry
+    for i, name in ipairs(db) do
+        if name == tabName then
+            table.remove(db, i)
+            break
+        end
+    end
+
+    -- Add to end
+    table.insert(db, tabName)
+
+    -- Force ElvUI to rebuild chat layout
+    E:PositionChat(true)
 end
 
 ------------------------------------------------------------
@@ -431,6 +479,7 @@ end)
 ------------------------------------------------------------
 SLASH_GRRESET1 = "/grreset"
 SlashCmdList["GRRESET"] = function()
+    -- Delete existing Guild tab if present
     for i = 1, NUM_CHAT_WINDOWS do
         if GetChatWindowInfo(i) == TARGET_TAB_NAME then
             FCF_Close(_G["ChatFrame"..i])
@@ -438,50 +487,35 @@ SlashCmdList["GRRESET"] = function()
         end
     end
 
+    -- Recreate
     targetFrame = EnsureGuildTabExists()
 
-    -- Reapply message groups even if the tab already existed
+    -- Reapply message groups
     ConfigureGuildTab(targetFrame)
 
-    -- Force the frame to be dockable again (ElvUI-safe)
+    -- Make sure it's dockable
     targetFrame.isDockable = 1
     targetFrame.isLocked = 0
 
-    -- Register with the dock manager
+    -- Register with dock manager
     if GeneralDockManager and GeneralDockManager.AddChatFrame then
         GeneralDockManager:AddChatFrame(targetFrame)
     end
 
-    -- Now dock it
+    -- Dock it
     SafeDock(targetFrame)
+
     ------------------------------------------------------------
-    -- Move Guild tab to the LAST dock position
+    -- Reorder depending on UI (Blizzard vs ElvUI)
     ------------------------------------------------------------
-    local dock = GeneralDockManager.primary
-    if dock and dock.DOCKED_CHAT_FRAMES then
-        -- Force the dock manager to refresh its list
-        GeneralDockManager:UpdateTabs()
-
-        -- Find the index of our frame
-        local index
-        for i, f in ipairs(dock.DOCKED_CHAT_FRAMES) do
-            if f == targetFrame then
-                index = i
-                break
-            end
-        end
-
-        if index then
-            -- Remove it from its current position
-            table.remove(dock.DOCKED_CHAT_FRAMES, index)
-
-            -- Insert it at the end
-            table.insert(dock.DOCKED_CHAT_FRAMES, targetFrame)
-
-            -- Reapply the dock layout
-            GeneralDockManager:LayoutTabs()
-        end
+    if ElvUI then
+        -- ElvUI path
+        MoveTabToEnd_ElvUI(TARGET_TAB_NAME)
+    else
+        -- Blizzard path
+        MoveTabToEnd_Blizzard(targetFrame)
     end
+
     print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
 end
 

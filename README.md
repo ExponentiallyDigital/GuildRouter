@@ -28,13 +28,63 @@ While you can move standard guild chat to a new tab using default Blizzard setti
 
 This addon works out of the box. Upon loading, it will check for a chat tab named **"Guild"**. If it doesn't find one, it will be created and populated with Guild, Officer, Guild announcement, and Blizzard system channels.
 
-### Debug
+## Command Line Options
 
-Debug mode can be anabled by typing `/grdebug` into your console (chat message box), repeat to disable. When enabled any unhandled CHAT_MSG_SYSTEM message (eg Blizzard adds a new Guild message event) will be printed to your main chat frame e.g.:
+GuildRouter provides several slash commands to manage the Guild tab, debug routing, test events, and control presence announcements. None are needed for installation or operation.
+
+`/grhelp` Displays a list of all available GuildRouter commands.
+
+`/grreset` Deletes the existing Guild chat tab (if present) and recreates it with the correct message groups and safe docking. Use this if the tab disappears, becomes undocked, or is misconfigured.
+
+`/grfix` Repairs the Guild tab’s message groups and re‑docks it safely. This does not delete the tab, it simply restores the correct configuration.
+
+`/grdock` Forces the Guild tab to dock to the main chat frame using the safe ElvUI‑compatible docking method. Use this if the tab is floating, hidden, or not visible.
+
+`/grsources` Displays the message groups currently assigned to the Guild tab. This uses Blizzard’s official API and works correctly under both Blizzard UI and ElvUI.
+
+`/grdebug` Toggles debug mode. When enabled, GuildRouter prints any system messages it did not handle to your main chat frame. This can be useful for identifying new message patterns, and helps diagnose routing issues e.g.:
 
 ```text
-[GR Debug] Unhandled system message: Arcette has sold the guild and moved to Far North Queensland.
+[GR Debug] Unhandled system message: LeeroyJenkins has sold the guild and moved to Blackrock Mountain.
 ```
+
+`/grtest` Simulates guild‑related events for testing.
+
+Examples:
+
+```text
+/grtest join
+/grtest leave
+/grtest promote
+/grtest demote
+/grtest note
+/grtest ach
+```
+
+These allow you to verify formatting, clickable names, class colours, and routing without needing real guild activity.
+
+`/grpresence` Controls login/logout announcements routed to the Guild tab. GuildRouter supports four presence modes:
+
+- `/grpresence guild-only` (Default) Only guild members’ login/logout messages are routed to the Guild tab. Everyone else (friends, party members, strangers) is ignored.
+
+- `/grpresence all` Routes all login/logout announcements to the Guild tab, regardless of guild membership.
+
+- `/grpresence off` Disables presence announcements entirely.
+
+- `/grpresence trace` Toggles presence trace mode. When enabled, GuildRouter prints detailed trace output showing whether a presence event was routed or ignored, why it was ignored (e.g., not a guild member, mode=off), and the exact message Blizzard fired which is useful for debugging presence behaviour.
+
+### SavedVariables
+
+GuildRouter stores presence settings in `GuildRouterDB`. The following values persist across sessions:
+
+`presenceMode` — `guild-only`, `all`, or `off`
+
+`presenceTrace` — `true` or `false`
+
+Defaults on first install:
+
+- presenceMode = "guild-only"
+- presenceTrace = false
 
 ## Technical details
 
@@ -54,7 +104,7 @@ Contributions to improve this tool are welcome! To contribute:
 4. Test with sample data and various input scenarios
 5. Submit a pull request with a clear description of the improvements
 
-Please ensure your changes maintain compatibility with existing variable formats and follow Lua best practices.
+Please ensure your changes maintain compatibility with existing variable formats and follows Lua best practices.
 
 ## <a name='Support'></a>Support
 

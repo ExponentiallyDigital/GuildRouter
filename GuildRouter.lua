@@ -4,10 +4,7 @@
 --      Join/leave messages are de-duplicated (Blizzard fires them multiple times).
 -- Architecture:
 --   To test:
---      1. achievement toon name is clickable
---      2. if Guild tab doesn't exist, it is created and set up correctly
---      3. all toon names are class coloured
---
+--      1. if Guild tab doesn't exist, it is created and set up correctly, what if it does exist?
 
 ------------------------------------------------------------
 -- Local references
@@ -430,7 +427,7 @@ initFrame:SetScript("OnEvent", function()
 end)
 
 ------------------------------------------------------------
--- /grreset — delete + recreate the Guild tab
+-- /grreset — recreate the Guild tab
 ------------------------------------------------------------
 SLASH_GRRESET1 = "/grreset"
 SlashCmdList["GRRESET"] = function()
@@ -445,6 +442,31 @@ SlashCmdList["GRRESET"] = function()
     SafeDock(targetFrame)
 
     print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
+end
+
+------------------------------------------------------------
+-- /grdelete — permanently delete the Guild tab
+------------------------------------------------------------
+SLASH_GRDELETE1 = "/grdelete"
+SlashCmdList["GRDELETE"] = function()
+    for i = 1, NUM_CHAT_WINDOWS do
+        local name = GetChatWindowInfo(i)
+        if name == TARGET_TAB_NAME then
+            local frame = _G["ChatFrame"..i]
+
+            -- Undock it first (required for deletion)
+            if frame.isDocked then
+                FCF_UnDockFrame(frame)
+            end
+
+            -- Close (this deletes the window when undocked)
+            FCF_Close(frame)
+
+            print("|cffff0000GuildRouter:|r Guild tab permanently deleted.")
+            return
+        end
+    end
+    print("|cffff8800GuildRouter:|r No Guild tab found to delete.")
 end
 
 ------------------------------------------------------------
@@ -597,7 +619,8 @@ end
 SLASH_GRHELP1 = "/grhelp"
 SlashCmdList["GRHELP"] = function()
     print("|cff00ff00GuildRouter by ArcNineOhNine, commands:|r")
-    print(" /grreset    - delete & recreate the Guild tab")
+    print(" /grdelete   - permanently delete the Guild tab")
+    print(" /grreset    - recreate the Guild tab")
     print(" /grdock     - dock the Guild tab if not visible")
     print(" /grfix      - repair Guild tab message groups and dock the tab")
     print(" /grsources  - show message groups/channels for the Guild tab")

@@ -19,9 +19,9 @@ While you can move standard guild chat to a new tab using default Blizzard setti
 - **Roster change tracking:** captures promotions, demotions, and note changes (officer & public)
 - **MOTD integration:** routes the guild message of the day to the tab upon login and update
 - **Anti-spam engine:** uses monotonic game-time tracking to de-duplicate rapid-fire system messages
-- **Performance:** built with localised globals and memory-efficient string escaping to ensure zero impact on your FPS
-- **Efficiency:** consumes a trivial ~450KB for a 1,000 player guild, also listens and only fires on system events
-- **Privacy:** all routed messages respect the data source, you can't see more than allowed eg officer chat restricted per Blizzard config
+- **Performance:** built with active name cacheing, localised globals, and memory-efficient string escaping to ensure zero impact on your FPS
+- **Efficiency:** consumes a trivial ~450KB for a ~1,000 player guild, only fires on system events
+- **Privacy:** all routed messages respect the data source, you can't see more than allowed eg officer chat restricted per Guild config
 
 ## Installation
 
@@ -39,6 +39,16 @@ If you are using ElvUi, you may need to drag the ‘Guild’ tab once to your pr
 GuildRouter provides several slash commands to manage the Guild tab, debug routing, test events, and control presence announcements. None are needed for installation or operation.
 
 `/grhelp` Displays a list of all available GuildRouter commands.
+
+`/grpresence` Controls login/logout announcements routed to the Guild tab. GuildRouter supports four presence modes:
+
+- `/grpresence guild-only` (Default) Only guild members’ login/logout messages are routed to the Guild tab. Everyone else (friends, party members, strangers) is ignored.
+
+- `/grpresence all` Routes all login/logout announcements to the Guild tab, regardless of guild membership and sourced from your friends list. This could get quite spammy.
+
+- `/grpresence off` Disables presence announcements entirely: disables printing a formatted message to the Guild channel when a guild member logs in or out. The member name is clickable to initiate whispers etc.
+
+- `/grpresence trace` Toggles presence trace mode. When enabled, GuildRouter prints very detailed trace output showing whether a presence event was routed or ignored, why it was ignored (e.g., not a guild member, mode=off), and the exact message Blizzard fired, this is used for debugging presence behaviour.
 
 `/grstatus short | full` Display detailed status information, defaults to short unless `full` specified.
 
@@ -75,17 +85,9 @@ Examples:
 
 These allow you to verify formatting, clickable names, class colours, and routing without needing real guild activity.
 
-`/grforceroster` A debugging command to force acquisition of the guild roster
+`/grforceroster` Debugging command to force acquisition of the guild roster
 
-`/grpresence` Controls login/logout announcements routed to the Guild tab. GuildRouter supports four presence modes:
-
-- `/grpresence guild-only` (Default) Only guild members’ login/logout messages are routed to the Guild tab. Everyone else (friends, party members, strangers) is ignored.
-
-- `/grpresence all` Routes all login/logout announcements to the Guild tab, regardless of guild membership and sourced from your friends list. This could get quite spammy.
-
-- `/grpresence off` Disables presence announcements entirely: disables printing a formatted message to the Guild channel when a guild member logs in or out. The member name is clickable to initiate whispers etc.
-
-- `/grpresence trace` Toggles presence trace mode. When enabled, GuildRouter prints very detailed trace output showing whether a presence event was routed or ignored, why it was ignored (e.g., not a guild member, mode=off), and the exact message Blizzard fired, this is used for debugging presence behaviour.
+`/grnames` Debugging command, display the name cache pairs
 
 ### SavedVariables
 
@@ -100,7 +102,7 @@ Defaults on first install:
 - presenceMode = "guild-only"
 - presenceTrace = false
 
-Don't edit the SavedVariables file, this is updated/read only by the addon.
+Don't edit the SavedVariables file, this is updated/read by the addon.
 
 ## Technical details
 

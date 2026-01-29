@@ -20,7 +20,8 @@ While you can move standard guild chat to a new tab using default Blizzard setti
 - **MOTD integration:** routes the guild message of the day to the tab upon login and update
 - **Anti-spam engine:** uses monotonic game-time tracking to de-duplicate rapid-fire system messages
 - **Performance:** built with localised globals and memory-efficient string escaping to ensure zero impact on your FPS
-- **Efficiency:** consumes ~80KB for a 1,000 player guild and only fires on system events
+- **Efficiency:** consumes ~80KB for a 1,000 player guild, listens and only fires on system events
+- **Privacy:** all routed messages respect the data source, you can't see more than allowed eg officer chat restricted per Blizzard config
 
 ## Installation
 
@@ -39,6 +40,8 @@ GuildRouter provides several slash commands to manage the Guild tab, debug routi
 
 `/grhelp` Displays a list of all available GuildRouter commands.
 
+`/grstatus short | full` Display detailed status information, defaults to short unless `full` specified.
+
 `/grreset` Recreates the existing Guild chat tab with the correct message groups and safe docking. Use this if the tab disappears, becomes undocked, or is misconfigured.
 
 `/grdelete` Deletes the existing Guild chat tab (if present). NB there is NO confirmation, it just gets deleted.
@@ -47,7 +50,9 @@ GuildRouter provides several slash commands to manage the Guild tab, debug routi
 
 `/grdock` Forces the Guild tab to dock to the main chat frame using the safe ElvUI‑compatible docking method. Use this if the tab is floating, hidden, or not visible.
 
-`/grsources` Displays the message groups currently assigned to the Guild tab. This uses Blizzard’s official API and works correctly under both Blizzard UI and ElvUI.
+`/grsources` Display the message groups currently assigned to the Guild tab. This uses Blizzard’s official API and works correctly under both Blizzard UI and ElvUI.
+
+`/grnames` Display the name cache pairs.
 
 `/grdebug` Toggles debug mode. When enabled, GuildRouter prints any system messages it did not handle to your main chat frame. This can be useful for identifying new message patterns, and helps diagnose routing issues e.g.:
 

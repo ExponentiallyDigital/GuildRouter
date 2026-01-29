@@ -32,6 +32,7 @@ local wipe              = wipe
 
 local GR_LastMessage = nil
 local GR_LastError   = nil
+GR_Events = {}
 
 ------------------------------------------------------------
 -- Presence announcement settings from SavedVariables on login
@@ -469,13 +470,17 @@ end
 -- Hook chat events
 ------------------------------------------------------------
 ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", FilterGuildMessages)
+GR_Events["CHAT_MSG_SYSTEM"] = true
+
 ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD_ACHIEVEMENT", FilterGuildMessages)
+GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] = true
+
 
 ------------------------------------------------------------
 -- Refresh name cache when the roster updates
 ------------------------------------------------------------
-local rosterFrame = CreateFrame("Frame")
 rosterFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
+GR_Events["GUILD_ROSTER_UPDATE"] = true
 rosterFrame:SetScript("OnEvent", RefreshNameCache)
 
 ------------------------------------------------------------
@@ -573,10 +578,19 @@ end
 -- Status, cache size
 ------------------------------------------------------------
 local function GR_GetCacheInfo()
+    local nameCount = 0
+    for _ in pairs(GR_NameCache) do
+        nameCount = nameCount + 1
+    end
+
+    local classCount = 0
+    for _ in pairs(nameClassCache) do
+        classCount = classCount + 1
+    end
+
     return {
-        names  = GR_NameCache and #GR_NameCache or 0,
-        class  = GR_ClassCache and #GR_ClassCache or 0,
-        realm  = GR_RealmCache and #GR_RealmCache or 0,
+        names  = nameCount,
+        class  = classCount,
     }
 end
 
@@ -954,8 +968,8 @@ SlashCmdList["GRSTATUS"] = function(msg)
     -- Short mode ends here unless full requested
     ------------------------------------------------
     if not full then
-        print("Presence: " .. tostring(GR_Saved and GR_Saved.presenceEnabled))
-        print("Debug:    " .. tostring(GR_Saved and GR_Saved.debugEnabled))
+        print("Presence mode: " .. tostring(GRPresenceMode))
+        print("Trace mode:    " .. tostring(GRPresenceTrace))
 
         if info then
             local groups = GR_GetMessageGroups(info.frame)

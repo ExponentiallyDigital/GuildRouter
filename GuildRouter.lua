@@ -288,7 +288,8 @@ end
 -- Guild member check for login/out routing
 ------------------------------------------------------------
 local function IsGuildMember(fullName)
-    return nameClassCache[fullName] ~= nil
+    local name = fullName:match("^[^-]+")
+    return nameClassCache[name] ~= nil
 end
 
 ------------------------------------------------------------
@@ -475,13 +476,20 @@ GR_Events["CHAT_MSG_SYSTEM"] = true
 ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD_ACHIEVEMENT", FilterGuildMessages)
 GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] = true
 
+local rosterFrame = CreateFrame("Frame")
+rosterFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
+rosterFrame:SetScript("OnEvent", RefreshNameCache)
+GR_Events["GUILD_ROSTER_UPDATE"] = true
 
 ------------------------------------------------------------
 -- Refresh name cache when the roster updates
 ------------------------------------------------------------
+local rosterFrame = CreateFrame("Frame")
 rosterFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
-GR_Events["GUILD_ROSTER_UPDATE"] = true
 rosterFrame:SetScript("OnEvent", RefreshNameCache)
+
+GR_Events = GR_Events or {}
+GR_Events["GUILD_ROSTER_UPDATE"] = true
 
 ------------------------------------------------------------
 -- Show the real guild MOTD in the Guild tab
@@ -589,8 +597,9 @@ local function GR_GetCacheInfo()
     end
 
     return {
-        names  = nameCount,
-        class  = classCount,
+        names = nameCount,
+        class = classCount,
+        realm = 0, -- you do not maintain a realm cache
     }
 end
 
@@ -1020,8 +1029,8 @@ SlashCmdList["GRSTATUS"] = function(msg)
     -- SavedVariables
     ------------------------------------------------
     print("SavedVariables:")
-    print("  presenceEnabled = " .. tostring(GR_Saved and GR_Saved.presenceEnabled))
-    print("  debugEnabled    = " .. tostring(GR_Saved and GR_Saved.debugEnabled))
+    print("  presenceMode  = " .. tostring(GRPresenceMode))
+    print("  presenceTrace = " .. tostring(GRPresenceTrace))
 
     ------------------------------------------------
     -- Cache info

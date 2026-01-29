@@ -9,6 +9,12 @@
 local TARGET_TAB_NAME = "Guild"
 local isElvUI = (ElvUI ~= nil)
 
+-- Throttle / debounce controls for roster refresh
+local GR_lastRefreshTime = 0
+local GR_REFRESH_DEBOUNCE = 5.0           -- minimum seconds between actual RefreshNameCache runs
+local GR_lastRefreshRequest = 0
+local GR_REFRESH_REQUEST_COOLDOWN = 10.0  -- minimum seconds between roster requests to the API
+
 local _G                = _G
 local NUM_CHAT_WINDOWS  = NUM_CHAT_WINDOWS
 local GetChatWindowInfo = GetChatWindowInfo
@@ -60,14 +66,15 @@ GR_NameCache = GR_NameCache or {}
 ------------------------------------------------------------
 -- Normalize a full name into name + realm
 -- Handles apostrophes, Unicode, hyphens, missing realms
+-- Splits on the LAST hyphen so realm parts containing hyphens are preserved.
 ------------------------------------------------------------
 function GR_NormalizeName(fullName)
     if not fullName or fullName == "" then
         return nil, nil
     end
 
-    -- Split on the FIRST hyphen only
-    local name, realm = fullName:match("^([^%-]+)%-(.+)$")
+    -- Split on the LAST hyphen so names or realms containing hyphens work
+    local name, realm = fullName:match("^(.*)%-(.+)$")
 
     if not name then
         -- No realm provided → assume player realm
@@ -228,26 +235,28 @@ end
 local function RefreshNameCache()
     if not IsInGuild() then return end
 
+    local now = GetTime()
+    if (now - GR_lastRefreshTime) < GR_REFRESH_DEBOUNCE then
+        if GRPresenceTrace then
+            print("|cffff8800[GR Trace]|r RefreshNameCache skipped (debounce).")
+        end
+        return
+    end
+    GR_lastRefreshTime = now
+
     wipe(nameClassCache)
 
     local num = GetNumGuildMembers()
     for i = 1, num do
         local name, _, _, _, _, _, _, _, _, _, classFilename = GetGuildRosterInfo(i)
         if name and classFilename then
-            -- name may be "Name" or "Name-Realm"
-            local shortName, realm = name:match("^([^%-]+)%-(.+)$")
-            if not shortName then
-                shortName = name
-                realm = GetRealmName()
-            end
-
+            local shortName, realm = GR_NormalizeName(name)
+            if not shortName then shortName = name; realm = GetRealmName() end
             local fullName = shortName .. "-" .. realm
 
-            -- Store both keys so lookups succeed for either form
             nameClassCache[shortName] = classFilename
             nameClassCache[fullName]  = classFilename
 
-            -- Cache the realm for the short name
             GR_CacheName(fullName)
         end
     end
@@ -256,7 +265,6 @@ local function RefreshNameCache()
         print("|cff00ff00[GR Trace]|r RefreshNameCache completed: " .. tostring(num) .. " entries.")
     end
 end
-
 
 ------------------------------------------------------------
 -- Build a class-coloured, clickable player link
@@ -317,6 +325,43 @@ local function DebugUnhandledSystemMessage(msg)
 end
 
 ------------------------------------------------------------
+-- Throttle roster lookups
+------------------------------------------------------------
+local function RequestRosterSafe()
+    if not IsInGuild() then return end
+
+    local now = GetTime()
+    if (now - GR_lastRefreshRequest) < GR_REFRESH_REQUEST_COOLDOWN then
+        if GRPresenceTrace then
+            print("|cffff8800[GR Trace]|r Skipping roster request (cooldown).")
+        end
+        return
+    end
+    GR_lastRefreshRequest = now
+
+    if C_GuildInfo and C_GuildInfo.GuildRoster then
+        C_GuildInfo.GuildRoster()
+        if GRPresenceTrace then
+            print("|cffff8800[GR Trace]|r Requested roster via C_GuildInfo.GuildRoster().")
+        end
+    elseif RequestGuildRoster then
+        RequestGuildRoster()
+        if GRPresenceTrace then
+            print("|cffff8800[GR Trace]|r Requested roster via RequestGuildRoster().")
+        end
+    elseif GuildRoster then
+        GuildRoster()
+        if GRPresenceTrace then
+            print("|cffff8800[GR Trace]|r Requested roster via GuildRoster().")
+        end
+    else
+        if GRPresenceTrace then
+            print("|cffff8800[GR Trace]|r No roster request API available; waiting for GUILD_ROSTER_UPDATE.")
+        end
+    end
+end
+
+------------------------------------------------------------
 -- Guild member check for login/out routing
 ------------------------------------------------------------
 local function IsGuildMember(fullName)
@@ -330,12 +375,6 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
     if not targetFrame then
         targetFrame = FindTargetFrame() or EnsureGuildTabExists()
     end
-
---    -- Real MOTD
---    if event == "GUILD_MOTD" then
---        targetFrame:AddMessage(msg)
---        return true
---    end
 
     -- System messages
     if event == "CHAT_MSG_SYSTEM" then
@@ -399,15 +438,29 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
                 end
                 return false
             end
-            
             if GRPresenceTrace then
                 print("|cffff8800[GR Trace]|r Presence lookup: fullName='" .. tostring(fullName) .. "'; lookup=" .. tostring(nameClassCache[fullName]))
             end
 
             ------------------------------------------------------------
-            -- Guild-only mode: ignore non-guild members
+            -- Guild-only mode: ignore non-guild members (with on-demand refresh)
             ------------------------------------------------------------
+            -- Try a direct lookup first
             local isGuild = IsGuildMember(fullName)
+
+            -- If not found, request a roster refresh (throttled) and try a single re-check
+            if not isGuild then
+                if GRPresenceTrace then
+                    print("|cffff8800[GR Trace]|r Presence lookup miss for: " .. tostring(fullName) .. " — requesting roster.")
+                end
+
+                -- Throttled roster request helper (must exist elsewhere in file)
+                RequestRosterSafe()
+
+                -- Immediate re-check in case the cache was already populated
+                isGuild = IsGuildMember(fullName)
+            end
+
             if GRPresenceMode == "guild-only" and not isGuild then
                 if GRPresenceTrace then
                     print("|cffff8800[GR Trace]|r Presence ignored (not guild): " .. msg)
@@ -574,18 +627,19 @@ initFrame:SetScript("OnEvent", function()
 end)
 
 ------------------------------------------------------------
--- Temporary debug: inspect internal caches (remove after debugging)
+-- Inspect internal caches (used in debugging)
 ------------------------------------------------------------
-
 SLASH_GRDBG1 = "/grdbg"
 SlashCmdList["GRDBG"] = function()
+    if not GRPresenceTrace then
+        print("|cffff8800[GR Trace]|r Debugging is disabled. Enable with /grpresence trace")
+        return
+    end
+
     print("|cff00ff00[GR Debug]|r Inspecting caches...")
 
-    -- GR_NameCache (global)
     local nameCount = 0
-    for k,v in pairs(GR_NameCache or {}) do
-        nameCount = nameCount + 1
-    end
+    for k,v in pairs(GR_NameCache or {}) do nameCount = nameCount + 1 end
     print("  GR_NameCache entries: " .. nameCount)
     if nameCount > 0 then
         for k,v in pairs(GR_NameCache) do
@@ -594,12 +648,9 @@ SlashCmdList["GRDBG"] = function()
         end
     end
 
-    -- nameClassCache (local in file)
     if nameClassCache then
         local classCount = 0
-        for k,v in pairs(nameClassCache) do
-            classCount = classCount + 1
-        end
+        for k,v in pairs(nameClassCache) do classCount = classCount + 1 end
         print("  nameClassCache entries: " .. classCount)
         if classCount > 0 then
             for k,v in pairs(nameClassCache) do
@@ -611,7 +662,6 @@ SlashCmdList["GRDBG"] = function()
         print("  nameClassCache: nil (not visible)")
     end
 
-    -- GR_GetCacheInfo() sanity check (if present)
     if GR_GetCacheInfo then
         local info = GR_GetCacheInfo()
         if info then
@@ -623,7 +673,6 @@ SlashCmdList["GRDBG"] = function()
         print("  GR_GetCacheInfo() not defined")
     end
 
-    -- GR_Events
     print("  GR_Events table present: " .. tostring(GR_Events ~= nil))
 end
 
@@ -1179,18 +1228,10 @@ end
 ------------------------------------------------------------
 SLASH_GRFORCERO1 = "/grforceroster"
 SlashCmdList["GRFORCERO"] = function()
-    if C_GuildInfo and C_GuildInfo.GuildRoster then
-        C_GuildInfo.GuildRoster()
-        print("|cff00ff00GuildRouter:|r Requested roster via C_GuildInfo.GuildRoster().")
-    elseif GuildRoster then
-        GuildRoster()
-        print("|cff00ff00GuildRouter:|r Requested roster via GuildRoster().")
-    elseif RequestGuildRoster then
-        RequestGuildRoster()
-        print("|cff00ff00GuildRouter:|r Requested roster via RequestGuildRoster().")
-    else
-        print("|cffff0000GuildRouter:|r No roster API available.")
+    if GRPresenceTrace then
+        print("|cff00ff00GuildRouter:|r Forcing roster request (trace enabled).")
     end
+    RequestRosterSafe()
 end
 
 ------------------------------------------------------------

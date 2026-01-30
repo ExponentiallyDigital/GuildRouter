@@ -646,7 +646,7 @@ SLASH_GRSTATUS1 = "/grstatus"
 SlashCmdList["GRSTATUS"] = function(msg)
     local full = msg and string.lower(msg):match("full")
     PrintMsg("Status")
-    print("Version: " .. ADDON_VERSION)
+    print("Version: " .. (C_AddOns and C_AddOns.GetAddOnMetadata("GuildRouter", "Version") or (GetAddOnMetadata and GetAddOnMetadata("GuildRouter", "Version")) or "unknown"))
     print("UI: " .. (isElvUI and "ElvUI" or "Blizzard"))
     local index, frame, docked = GR_GetGuildTabInfo()
     if index then

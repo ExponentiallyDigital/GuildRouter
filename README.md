@@ -20,7 +20,7 @@ While you can move standard guild chat to a new tab using default Blizzard setti
 - **MOTD integration:** routes the guild message of the day to the tab upon login and update
 - **Anti-spam engine:** uses monotonic game-time tracking to de-duplicate rapid-fire system messages
 - **Performance:** built with active name caching, localized globals, and inlined pattern escaping to ensure zero impact on your FPS
-- **Efficiency:** consumes trivial memory (~230KB with a 750 player guild), only fires on system events
+- **Efficiency:** consumes trivial memory (232KB with a 768 player guild), only fires on system events
 - **Privacy:** all routed messages respect the data source, you can't see more than allowed e.g. officer chat restricted per Guild config
 
 ## Installation

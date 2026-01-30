@@ -659,6 +659,7 @@ SlashCmdList["GRSTATUS"] = function(msg)
     local index, frame, docked = GR_GetGuildTabInfo()
     if index then
         print("Tab: ChatFrame " .. index .. (docked and " (docked)" or ""))
+        local groups = GR_GetMessageGroups(frame) or {}
         local friendlyList = {}
         for i = 1, #groups do
             local friendly = FRIENDLY_SOURCES[groups[i]]

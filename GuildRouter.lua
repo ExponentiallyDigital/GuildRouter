@@ -635,6 +635,7 @@ end
 ------------------------------------------------------------
 -- /grstatus — show diagnostic info
 ------------------------------------------------------------
+SLASH_GRSTATUS1 = "/grstatus"
 SlashCmdList["GRSTATUS"] = function(msg)
     local full = msg and msg:lower():match("full")
     PrintMsg("Status")

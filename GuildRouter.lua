@@ -650,29 +650,29 @@ end
 ------------------------------------------------------------
 SLASH_GRSTATUS1 = "/grstatus"
 SlashCmdList["GRSTATUS"] = function(msg)
-    local full = msg and string.lower(msg):match("full")
+    local full = msg and msg:lower():match("full")
     PrintMsg("Status")
-    print("Version: " .. (C_AddOns and C_AddOns.GetAddOnMetadata("GuildRouter", "Version") or (GetAddOnMetadata and GetAddOnMetadata("GuildRouter", "Version")) or "unknown"))
+    local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or (GetAddOnMetadata and GetAddOnMetadata)
+    local version = meta and meta("GuildRouter", "Version") or "unknown"
+    print("Version: " .. version)
     print("UI: " .. (isElvUI and "ElvUI" or "Blizzard"))
     local index, frame, docked = GR_GetGuildTabInfo()
     if index then
         print("Tab: ChatFrame " .. index .. (docked and " (docked)" or ""))
-        local groups = GR_GetMessageGroups(frame)
-        print("  Active sources:")
-        local shown = false
-        for _, group in ipairs(groups) do
-            local friendly = FRIENDLY_SOURCES[group]
+        local friendlyList = {}
+        for i = 1, #groups do
+            local friendly = FRIENDLY_SOURCES[groups[i]]
             if friendly then
-                print("    • " .. friendly)
-                shown = true
+                friendlyList[#friendlyList + 1] = friendly
             end
         end
-        if not shown then
-            print("    • none")
+        if #friendlyList > 0 then
+            print("  Active sources: " .. table.concat(friendlyList, " , "))
+        else
+            print("  Active sources: none")
         end
     else
         print("Tab: NOT FOUND")
-        -- We continue even if tab is missing to show cache info
     end
     local nCache, cCache = GR_GetCacheInfo()
     print("Caches: names=" .. nCache .. ", class=" .. cCache)
@@ -683,12 +683,9 @@ SlashCmdList["GRSTATUS"] = function(msg)
     print("SavedVariables:")
     print("  presenceMode = " .. tostring(GRPresenceMode))
     print("  presenceTrace = " .. tostring(GRPresenceTrace))
-    -- Final memory measurement
-    collectgarbage("collect") 
-    UpdateAddOnMemoryUsage() 
-    local mem = GetAddOnMemoryUsage("GuildRouter")
-    -- Using string.format directly to avoid any missing local references
-    print(string.format("Memory: %.1f KB", mem))
+    collectgarbage("collect")
+    UpdateAddOnMemoryUsage()
+    print(string.format("Memory: %.1f KB", GetAddOnMemoryUsage("GuildRouter")))
 end
 
 ------------------------------------------------------------

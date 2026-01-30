@@ -19,9 +19,9 @@ While you can move standard guild chat to a new tab using default Blizzard setti
 - **Roster change tracking:** captures promotions, demotions, and note changes (officer & public)
 - **MOTD integration:** routes the guild message of the day to the tab upon login and update
 - **Anti-spam engine:** uses monotonic game-time tracking to de-duplicate rapid-fire system messages
-- **Performance:** built with active name cacheing, localised globals, and memory-efficient string escaping to ensure zero impact on your FPS
-- **Efficiency:** consumes a trivial ~450KB for a ~1,000 player guild, only fires on system events
-- **Privacy:** all routed messages respect the data source, you can't see more than allowed eg officer chat restricted per Guild config
+- **Performance:** built with active name caching, localized globals, and inlined pattern escaping to ensure zero impact on your FPS
+- **Efficiency:** consumes trivial memory (~450KB for ~1,000 player guild), only fires on system events
+- **Privacy:** all routed messages respect the data source, you can't see more than allowed e.g. officer chat restricted per Guild config
 
 ## Installation
 
@@ -36,58 +36,31 @@ If you are using ElvUi, you may need to drag the ‘Guild’ tab once to your pr
 
 ## Command Line Options
 
-GuildRouter provides several slash commands to manage the Guild tab, debug routing, test events, and control presence announcements. None are needed for installation or operation.
+GuildRouter provides several slash commands to manage the Guild tab, control presence announcements, and test events. None are required for normal operation.
 
-`/grhelp` Displays a list of all available GuildRouter commands.
+`/grhelp` Displays available GuildRouter commands.
 
-`/grpresence` Controls login/logout announcements routed to the Guild tab. GuildRouter supports four presence modes:
+`/grpresence [mode]` Controls login/logout announcements. Modes: `guild-only` (default), `all`, `off`, or `trace` (debug).
 
-- `/grpresence guild-only` (Default) Only guild members’ login/logout messages are routed to the Guild tab. Everyone else (friends, party members, strangers) is ignored.
+`/grstatus [full]` Display status (compact by default, full for detailed info).
 
-- `/grpresence all` Routes all login/logout announcements to the Guild tab, regardless of guild membership and sourced from your friends list. This could get quite spammy.
+`/grreset` Recreates the Guild tab with correct configuration and docking.
 
-- `/grpresence off` Disables presence announcements entirely: disables printing a formatted message to the Guild channel when a guild member logs in or out. The member name is clickable to initiate whispers etc.
+`/grdelete` Deletes the Guild tab (no confirmation).
 
-- `/grpresence trace` Toggles presence trace mode. When enabled, GuildRouter prints very detailed trace output showing whether a presence event was routed or ignored, why it was ignored (e.g., not a guild member, mode=off), and the exact message Blizzard fired, this is used for debugging presence behaviour.
+`/grfix` Repairs the Guild tab's configuration and docking.
 
-`/grstatus short | full` Display detailed status information, defaults to short unless `full` specified.
+`/grdock` Forces the Guild tab to dock.
 
-`/grreset` Recreates the existing Guild chat tab with the correct message groups and safe docking. Use this if the tab disappears, becomes undocked, or is misconfigured.
+`/grsources` Displays message groups assigned to the Guild tab.
 
-`/grdelete` Deletes the existing Guild chat tab (if present). NB there is NO confirmation, it just gets deleted.
+`/grtest [event]` Simulates guild events: `join`, `leave`, `promote`, `demote`, `note`, `ach`.
 
-`/grfix` Repairs the Guild tab’s message groups and re‑docks it safely. This does not delete the tab, it simply restores the correct configuration.
+`/grforceroster` Force guild roster acquisition.
 
-`/grdock` Forces the Guild tab to dock to the main chat frame using the safe ElvUI‑compatible docking method. Use this if the tab is floating, hidden, or not visible.
+`/grnames` Display cached player→realm mappings.
 
-`/grsources` Display the message groups currently assigned to the Guild tab. This uses Blizzard’s official API and works correctly under both Blizzard UI and ElvUI.
-
-`/grnames` Display the name cache pairs.
-
-`/grdebug` Toggles debug mode. When enabled, GuildRouter prints any system messages it did not handle to your main chat frame. This can be useful for identifying new message patterns, and helps diagnose routing issues e.g.:
-
-```text
-[GR Debug] Unhandled system message: LeeroyJenkins has sold the guild and moved to Blackrock Mountain.
-```
-
-`/grtest` Simulates guild‑related events for testing.
-
-Examples:
-
-```text
-/grtest join
-/grtest leave
-/grtest promote
-/grtest demote
-/grtest note
-/grtest ach
-```
-
-These allow you to verify formatting, clickable names, class colours, and routing without needing real guild activity.
-
-`/grforceroster` Debugging command to force acquisition of the guild roster
-
-`/grnames` Debugging command, display the name cache pairs
+`/grdbg` Display cache statistics.
 
 ### SavedVariables
 

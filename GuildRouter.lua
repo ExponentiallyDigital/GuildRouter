@@ -668,7 +668,7 @@ SlashCmdList["GRSTATUS"] = function(msg)
             end
         end
         if #friendlyList > 0 then
-            print("  Active sources: " .. table.concat(friendlyList, " , "))
+            print("  Active sources: " .. table.concat(friendlyList, ", "))
         else
             print("  Active sources: none")
         end

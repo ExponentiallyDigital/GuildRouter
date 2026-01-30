@@ -35,7 +35,7 @@ local match             = string.match
 local find              = string.find
 local gsub              = string.gsub
 local wipe              = wipe
-
+local PLAYER_REALM      = GetRealmName()
 GR_Events = {}
 
 ------------------------------------------------------------
@@ -82,7 +82,7 @@ function GR_NormalizeName(fullName)
     if not name then
         -- No realm provided → assume player realm
         name  = fullName
-        realm = GetRealmName()
+        realm = PLAYER_REALM
     end
     return name, realm
 end
@@ -180,7 +180,9 @@ local function RefreshNameCache()
         return
     end
     GR_lastRefreshTime = now
+    -- Wiping both ensures we don't have "ghost" members in our cache
     wipe(nameClassCache)
+    wipe(GR_NameCache) 
     local num = GetNumGuildMembers()
     for i = 1, num do
         local name, _, _, _, _, _, _, _, _, _, classFilename = GetGuildRosterInfo(i)
@@ -188,9 +190,12 @@ local function RefreshNameCache()
             local shortName, realm = GR_NormalizeName(name)
             if not shortName then shortName = name; realm = GetRealmName() end
             local fullName = shortName .. "-" .. realm
+            
             nameClassCache[shortName] = classFilename
             nameClassCache[fullName]  = classFilename
-            GR_CacheName(fullName)
+            
+            -- Direct assignment is slightly faster than calling a helper function here
+            GR_NameCache[shortName] = realm 
         end
     end
     Trace("[Cache] " .. num .. " members refreshed")
@@ -267,6 +272,36 @@ local function MatchRosterChange(msg)
         if a and t then return a, t end
     end
     return nil, nil
+end
+
+------------------------------------------------------------
+-- Helper: message groups assigned to the Guild tab
+------------------------------------------------------------
+local function GR_GetMessageGroups(frame)
+    local groups = {}
+    if not frame then return groups end
+    for _, group in ipairs({
+        "SYSTEM", "GUILD", "OFFICER", "GUILD_ACHIEVEMENT",
+        "SAY", "YELL", "WHISPER", "PARTY", "RAID",
+        "CHANNEL1", "CHANNEL2", "CHANNEL3", "CHANNEL4",
+    }) do
+        if ChatFrame_ContainsMessageGroup(frame, group) then
+            table.insert(groups, group)
+        end
+    end
+    return groups
+end
+local function GR_GetCacheInfo()
+    local nameCount, classCount = 0, 0
+    for _ in pairs(GR_NameCache or {}) do nameCount = nameCount + 1 end
+    for _ in pairs(nameClassCache or {}) do classCount = classCount + 1 end
+    return nameCount, classCount -- Returns numbers directly
+end
+local function GR_GetEventStatus()
+    local sys = GR_Events["CHAT_MSG_SYSTEM"] and "yes" or "no"
+    local ach = GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] and "yes" or "no"
+    local roster = GR_Events["GUILD_ROSTER_UPDATE"] and "yes" or "no"
+    return sys, ach, roster -- Returns three strings
 end
 
 ------------------------------------------------------------
@@ -439,7 +474,10 @@ initFrame:SetScript("OnEvent", function()
     end
 end)
 
-SLASH_GRDBG1 = "/grdbg"
+------------------------------------------------------------
+-- /grdebug — recreate the Guild tab
+------------------------------------------------------------
+SLASH_GRDBG1 = "/grdebug"
 SlashCmdList["GRDBG"] = function()
     local cache = GR_GetCacheInfo()
     PrintMsg("Cache: names=" .. cache.names .. " class=" .. cache.class)
@@ -520,18 +558,18 @@ SLASH_GRTEST1 = "/grtest"
 SlashCmdList["GRTEST"] = function(arg)
     local frame = FindTargetFrame() or EnsureGuildTabExists()
     local tests = {
-        join = "ArcNineOhNine has joined the guild.",
-        leave = "ArcNineOhNine has left the guild.",
-        promote = "ArcNineOhNine has promoted LeeroyJenkins to rank Member.",
-        demote = "ArcNineOhNine has demoted LeeroyJenkins to rank Initiate.",
-        note = "ArcNineOhNine has changed the Officer Note for LeeroyJenkins.",
+        join = "Turalyon has joined the guild.",
+        leave = "Murloc has left the guild.",
+        promote = "Sargeras has promoted Swapxy to rank Officer.",
+        demote = "Sargeras has demoted LeeroyJenkins to rank Initiate.",
+        note = "Sargeras has changed the Officer Note for LeeroyJenkins.",
     }
     if tests[arg] then
         FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", tests[arg])
         PrintMsg("Test: " .. arg)
     elseif arg == "ach" then
         FilterGuildMessages(nil, "CHAT_MSG_GUILD_ACHIEVEMENT",
-            "%s has earned the achievement %s!", "ArcNineOhNine-Proudmoore",
+            "%s has earned the achievement %s!", "Turalyon-Ner'zhul",
             "|cffffff00|Hachievement:6:Player-1234-00000000:1:1:1:1:4294967295:4294967295:4294967295:4294967295|h[Level 10]|h|r")
         PrintMsg("Test: ach")
     else
@@ -587,70 +625,41 @@ end
 local function GR_GetGuildTabInfo()
     for i = 1, NUM_CHAT_WINDOWS do
         if GetChatWindowInfo(i) == TARGET_TAB_NAME then
-            return { index = i, frame = _G["ChatFrame"..i], docked = _G["ChatFrame"..i].isDocked }
+            local frame = _G["ChatFrame"..i]
+            return i, frame, frame.isDocked -- Returns values, not a table
         end
     end
-end
-
-------------------------------------------------------------
--- Helper: message groups assigned to the Guild tab
-------------------------------------------------------------
-local function GR_GetMessageGroups(frame)
-    local groups = {}
-    if not frame then return groups end
-    for _, group in ipairs({
-        "SYSTEM", "GUILD", "OFFICER", "GUILD_ACHIEVEMENT",
-        "SAY", "YELL", "WHISPER", "PARTY", "RAID",
-        "CHANNEL1", "CHANNEL2", "CHANNEL3", "CHANNEL4",
-    }) do
-        if ChatFrame_ContainsMessageGroup(frame, group) then
-            table.insert(groups, group)
-        end
-    end
-    return groups
-end
-local function GR_GetCacheInfo()
-    local nameCount = 0
-    for _ in pairs(GR_NameCache or {}) do
-        nameCount = nameCount + 1
-    end
-    local classCount = 0
-    for _ in pairs(nameClassCache or {}) do
-        classCount = classCount + 1
-    end
-    return { names = nameCount, class = classCount }
-end
-local function GR_GetEventStatus()
-    return {
-        system = GR_Events["CHAT_MSG_SYSTEM"] and "yes" or "no",
-        ach    = GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] and "yes" or "no",
-        roster = GR_Events["GUILD_ROSTER_UPDATE"] and "yes" or "no",
-    }
+    return nil
 end
 
 ------------------------------------------------------------
 -- /grstatus — show diagnostic info
 ------------------------------------------------------------
-SLASH_GRSTATUS1 = "/grstatus"
 SlashCmdList["GRSTATUS"] = function(msg)
     local full = msg and msg:lower():match("full")
     PrintMsg("Status")
     print("UI: " .. (isElvUI and "ElvUI" or "Blizzard"))
-    local info = GR_GetGuildTabInfo()
-    if info then
-        print("Tab: ChatFrame" .. info.index .. (info.docked and " (docked)" or ""))
-        if not full then return end
-        print("  Visible: " .. tostring(info.visible) .. ", Locked: " .. tostring(info.locked))
-        local groups = GR_GetMessageGroups(info.frame)
-        print("  Groups: " .. (#groups > 0 and table.concat(groups, ", ") or "none"))
+    local index, frame, docked = GR_GetGuildTabInfo()
+    if index then
+        print("Tab: ChatFrame " .. index .. (docked and " (docked)" or ""))
+        if full then 
+            local groups = GR_GetMessageGroups(frame)
+            print("  Groups: " .. (#groups > 0 and table.concat(groups, ", ") or "none"))
+        end
     else
         print("Tab: NOT FOUND")
         return
     end
-    local cache = GR_GetCacheInfo()
-    print("Caches: names=" .. cache.names .. ", class=" .. cache.class)
-    local ev = GR_GetEventStatus()
-    print("Events: sys=" .. ev.system .. ", ach=" .. ev.ach .. ", roster=" .. ev.roster)
+    local nCache, cCache = GR_GetCacheInfo()
+    print("Caches: names=" .. nCache .. ", class=" .. cCache)
+    local evSys, evAch, evRos = GR_GetEventStatus()
+    print("Events: sys=" .. evSys .. ", ach=" .. evAch .. ", roster=" .. evRos)
+    print("Presence mode: " .. tostring(GRPresenceMode))
+    -- Measurement Line: Forced garbage collection + localized formatting
+    collectgarbage("collect") 
+    UpdateAddOnMemoryUsage() 
+    local mem = GetAddOnMemoryUsage("GuildRouter")
+    print(format("|cff00ff00Memory:|r %.1f KB", mem))
 end
 
 ------------------------------------------------------------
@@ -667,5 +676,15 @@ end
 ------------------------------------------------------------
 SLASH_GRHELP1 = "/grhelp"
 SlashCmdList["GRHELP"] = function()
-    PrintMsg("Commands: status, presence, dock, reset, fix, delete, sources, test, help")
+    print("|cff00ff00GuildRouter by ArcNineOhNine, commands:|r")
+    print(" /grstatus   - display status info, defaults to short unless `full` specified.")
+    print(" /grpresence - set & save login/out announcements (def=guild-only, all, off, trace)")
+    print(" /grdock     - dock the Guild tab if not visible")
+    print(" /grreset    - recreate the Guild tab")
+    print(" /grfix      - repair Guild tab message groups and dock the tab")
+    print(" /grdelete   - permanently delete the Guild tab")
+    print(" /grsources  - show message groups/channels for the Guild tab")
+    print(" /grtest     - simulate guild events (join, leave, promote, demote, note, ach)")
+    print(" /grdebug    - display cache")
+    print(" /grhelp     - show this command list")
 end

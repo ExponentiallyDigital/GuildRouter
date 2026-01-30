@@ -475,15 +475,6 @@ initFrame:SetScript("OnEvent", function()
 end)
 
 ------------------------------------------------------------
--- /grdebug — recreate the Guild tab
-------------------------------------------------------------
-SLASH_GRDBG1 = "/grdebug"
-SlashCmdList["GRDBG"] = function()
-    local cache = GR_GetCacheInfo()
-    PrintMsg("Cache: names=" .. cache.names .. " class=" .. cache.class)
-end
-
-------------------------------------------------------------
 -- /grreset — recreate the Guild tab
 ------------------------------------------------------------
 SLASH_GRRESET1 = "/grreset"
@@ -718,6 +709,5 @@ SlashCmdList["GRHELP"] = function()
     print(" /grdelete   - permanently delete the Guild tab")
     print(" /grsources  - show message groups/channels for the Guild tab")
     print(" /grtest     - simulate guild events (join, leave, promote, demote, note, ach)")
-    print(" /grdebug    - display cache")
     print(" /grhelp     - show this command list")
 end

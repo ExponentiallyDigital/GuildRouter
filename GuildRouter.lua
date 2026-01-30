@@ -519,19 +519,6 @@ SlashCmdList["GRDELETE"] = function()
 end
 
 ------------------------------------------------------------
--- /grsources — reliable message group listing (Blizzard + ElvUI)
-------------------------------------------------------------
-SLASH_GRSOURCES1 = "/grsources"
-SlashCmdList["GRSOURCES"] = function()
-    local frame = FindTargetFrame()
-    if not frame then
-        PrintMsg("Guild tab not found.")
-        return
-    end
-    PrintMsg("Sources: " .. table.concat(GR_GetMessageGroups(frame), ", "))
-end
-
-------------------------------------------------------------
 -- /grfix — repair Guild tab message groups
 ------------------------------------------------------------
 SLASH_GRFIX1 = "/grfix"
@@ -557,12 +544,12 @@ SlashCmdList["GRTEST"] = function(arg)
     }
     if tests[arg] then
         FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", tests[arg])
-        PrintMsg("Test: " .. arg)
+        PrintMsg("Test: " .. arg " (see Guild tab)")
     elseif arg == "ach" then
         FilterGuildMessages(nil, "CHAT_MSG_GUILD_ACHIEVEMENT",
             "%s has earned the achievement %s!", "Turalyon-Ner'zhul",
             "|cffffff00|Hachievement:6:Player-1234-00000000:1:1:1:1:4294967295:4294967295:4294967295:4294967295|h[Level 10]|h|r")
-        PrintMsg("Test: ach")
+        PrintMsg("Test: ach (see Guild tab)")
     else
         PrintMsg("Tests: join, leave, promote, demote, note, ach")
     end
@@ -659,6 +646,7 @@ SLASH_GRSTATUS1 = "/grstatus"
 SlashCmdList["GRSTATUS"] = function(msg)
     local full = msg and string.lower(msg):match("full")
     PrintMsg("Status")
+    print("Version: " .. ADDON_VERSION)
     print("UI: " .. (isElvUI and "ElvUI" or "Blizzard"))
     local index, frame, docked = GR_GetGuildTabInfo()
     if index then
@@ -701,13 +689,12 @@ end
 SLASH_GRHELP1 = "/grhelp"
 SlashCmdList["GRHELP"] = function()
     print("|cff00ff00GuildRouter by ArcNineOhNine, commands:|r")
-    print(" /grstatus   - display status info, defaults to short unless `full` specified.")
+    print(" /grstatus   - display status info")
     print(" /grpresence - set & save login/out announcements (def=guild-only, all, off, trace)")
     print(" /grdock     - dock the Guild tab if not visible")
     print(" /grreset    - recreate the Guild tab")
     print(" /grfix      - repair Guild tab message groups and dock the tab")
     print(" /grdelete   - permanently delete the Guild tab")
-    print(" /grsources  - show message groups/channels for the Guild tab")
     print(" /grtest     - simulate guild events (join, leave, promote, demote, note, ach)")
     print(" /grhelp     - show this command list")
 end

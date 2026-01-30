@@ -42,7 +42,7 @@ GuildRouter provides several slash commands to manage the Guild tab, control pre
 
 `/grpresence [mode]` Controls login/logout announcements. Modes: `guild-only` (default), `all`, `off`, or `trace` (debug).
 
-`/grstatus [full]` Display status (compact by default, full for detailed info).
+`/grstatus` Display addon status including memory use.
 
 `/grreset` Recreates the Guild tab with correct configuration and docking.
 
@@ -51,8 +51,6 @@ GuildRouter provides several slash commands to manage the Guild tab, control pre
 `/grfix` Repairs the Guild tab's configuration and docking.
 
 `/grdock` Forces the Guild tab to dock.
-
-`/grsources` Displays message groups assigned to the Guild tab.
 
 `/grtest [event]` Simulates guild events: `join`, `leave`, `promote`, `demote`, `note`, `ach`.
 

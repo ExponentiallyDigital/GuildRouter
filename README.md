@@ -60,8 +60,6 @@ GuildRouter provides several slash commands to manage the Guild tab, control pre
 
 `/grnames` Display cached player→realm mappings.
 
-`/grdbg` Display cache statistics.
-
 ### SavedVariables
 
 GuildRouter stores presence settings in `GuildRouterDB`. The following values persist across sessions:

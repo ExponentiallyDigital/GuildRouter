@@ -633,34 +633,66 @@ local function GR_GetGuildTabInfo()
 end
 
 ------------------------------------------------------------
--- /grstatus — show diagnostic info
+-- Helper: Zero-allocation Diagnostic Info
+------------------------------------------------------------
+local function GR_GetCacheInfo()
+    local nameCount, classCount = 0, 0
+    if GR_NameCache then for _ in pairs(GR_NameCache) do nameCount = nameCount + 1 end end
+    if nameClassCache then for _ in pairs(nameClassCache) do classCount = classCount + 1 end end
+    return nameCount, classCount
+end
+
+local function GR_GetEventStatus()
+    local sys = GR_Events["CHAT_MSG_SYSTEM"] and "yes" or "no"
+    local ach = GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] and "yes" or "no"
+    local roster = GR_Events["GUILD_ROSTER_UPDATE"] and "yes" or "no"
+    return sys, ach, roster
+end
+
+local function GR_GetGuildTabInfo()
+    for i = 1, NUM_CHAT_WINDOWS do
+        if GetChatWindowInfo(i) == TARGET_TAB_NAME then
+            local frame = _G["ChatFrame"..i]
+            if frame then
+                return i, frame, frame.isDocked
+            end
+        end
+    end
+    return nil, nil, nil
+end
+
+------------------------------------------------------------
+-- /grstatus — show diagnostic info (Optimized)
 ------------------------------------------------------------
 SLASH_GRSTATUS1 = "/grstatus"
 SlashCmdList["GRSTATUS"] = function(msg)
-    local full = msg and msg:lower():match("full")
+    local full = msg and string.lower(msg):match("full")
     PrintMsg("Status")
     print("UI: " .. (isElvUI and "ElvUI" or "Blizzard"))
     local index, frame, docked = GR_GetGuildTabInfo()
     if index then
         print("Tab: ChatFrame " .. index .. (docked and " (docked)" or ""))
-        if full then 
-            local groups = GR_GetMessageGroups(frame)
-            print("  Groups: " .. (#groups > 0 and table.concat(groups, ", ") or "none"))
-        end
+        local groups = GR_GetMessageGroups(frame) 
+        print("  Active sources: " .. (#groups > 0 and table.concat(groups, ", ") or "none"))
     else
         print("Tab: NOT FOUND")
-        return
+        -- We continue even if tab is missing to show cache info
     end
     local nCache, cCache = GR_GetCacheInfo()
     print("Caches: names=" .. nCache .. ", class=" .. cCache)
     local evSys, evAch, evRos = GR_GetEventStatus()
     print("Events: sys=" .. evSys .. ", ach=" .. evAch .. ", roster=" .. evRos)
     print("Presence mode: " .. tostring(GRPresenceMode))
-    -- Measurement Line: Forced garbage collection + localized formatting
+    print("Trace mode: " .. tostring(GRPresenceTrace))
+    print("SavedVariables:")
+    print("  presenceMode = " .. tostring(GRPresenceMode))
+    print("  presenceTrace = " .. tostring(GRPresenceTrace))
+    -- Final memory measurement
     collectgarbage("collect") 
     UpdateAddOnMemoryUsage() 
     local mem = GetAddOnMemoryUsage("GuildRouter")
-    print(format("|cff00ff00Memory:|r %.1f KB", mem))
+    -- Using string.format directly to avoid any missing local references
+    print(string.format("Memory: %.1f KB", mem))
 end
 
 ------------------------------------------------------------

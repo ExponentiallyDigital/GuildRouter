@@ -38,6 +38,12 @@ local wipe              = wipe
 local PLAYER_REALM      = GetRealmName()
 GR_Events = {}
 
+local FRIENDLY_SOURCES = {
+    SYSTEM  = "System",
+    GUILD   = "Guild Chat",
+    OFFICER = "Officer Chat",
+}
+
 ------------------------------------------------------------
 -- Presence announcement settings from SavedVariables on login
 ------------------------------------------------------------
@@ -651,8 +657,19 @@ SlashCmdList["GRSTATUS"] = function(msg)
     local index, frame, docked = GR_GetGuildTabInfo()
     if index then
         print("Tab: ChatFrame " .. index .. (docked and " (docked)" or ""))
-        local groups = GR_GetMessageGroups(frame) 
-        print("  Active sources: " .. (#groups > 0 and table.concat(groups, ", ") or "none"))
+        local groups = GR_GetMessageGroups(frame)
+        print("  Active sources:")
+        local shown = false
+        for _, group in ipairs(groups) do
+            local friendly = FRIENDLY_SOURCES[group]
+            if friendly then
+                print("    • " .. friendly)
+                shown = true
+            end
+        end
+        if not shown then
+            print("    • none")
+        end
     else
         print("Tab: NOT FOUND")
         -- We continue even if tab is missing to show cache info

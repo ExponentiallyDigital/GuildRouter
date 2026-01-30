@@ -36,8 +36,6 @@ local find              = string.find
 local gsub              = string.gsub
 local wipe              = wipe
 
-local GR_LastMessage = nil
-local GR_LastError   = nil
 GR_Events = {}
 
 ------------------------------------------------------------
@@ -47,15 +45,22 @@ local GRPresenceMode
 local GRPresenceTrace
 
 ------------------------------------------------------------
+-- Helper: centralized messaging
+------------------------------------------------------------
+local function PrintMsg(msg)
+    print("|cff00ff00GuildRouter:|r " .. msg)
+end
+local function Trace(msg)
+    if not GRPresenceTrace then return end
+    print(msg)
+end
+
+------------------------------------------------------------
 -- State
 ------------------------------------------------------------
 local targetFrame = nil
-
--- For join/leave de-duplication
 local lastJoinLeaveMessage = nil
 local lastJoinLeaveTime    = 0
-
--- Cache: fullName ("Name-Realm") -> classFilename ("WARRIOR")
 local nameClassCache = {}
 
 ------------------------------------------------------------
@@ -72,16 +77,13 @@ function GR_NormalizeName(fullName)
     if not fullName or fullName == "" then
         return nil, nil
     end
-
     -- Split on the LAST hyphen so names or realms containing hyphens work
     local name, realm = fullName:match("^(.*)%-(.+)$")
-
     if not name then
         -- No realm provided → assume player realm
         name  = fullName
         realm = GetRealmName()
     end
-
     return name, realm
 end
 
@@ -102,7 +104,6 @@ end
 ------------------------------------------------------------
 function GR_ResolveName(nameOrFull)
     if not nameOrFull or nameOrFull == "" then return nil end
-
     -- If it already contains a hyphen, treat it as a full name
     if nameOrFull:find("%-") then
         local n, r = GR_NormalizeName(nameOrFull)
@@ -111,13 +112,11 @@ function GR_ResolveName(nameOrFull)
         end
         return nameOrFull
     end
-
     -- Otherwise treat as a short name and look up realm
     local realm = GR_NameCache[nameOrFull]
     if realm then
         return nameOrFull .. "-" .. realm
     end
-
     -- Fallback: assume same realm
     return nameOrFull .. "-" .. GetRealmName()
 end
@@ -134,69 +133,14 @@ local function FindTargetFrame()
     return nil
 end
 
-------------------------------------------------------------
--- Safe docking (Blizzard + ElvUI compatible)
-------------------------------------------------------------
 local function SafeDock(frame)
     if not frame then return end
-
     frame:Show()
     frame.isDocked = 1
-
     if GeneralDockManager and GeneralDockManager.AddChatFrame then
         GeneralDockManager:AddChatFrame(frame)
     end
-
-    if FCF_SelectDockFrame then
-        FCF_SelectDockFrame(frame)
-    end
-end
-
-------------------------------------------------------------
--- Order tab when running without ElvUI
-------------------------------------------------------------
-local function MoveTabToEnd_Blizzard(frame)
-    local dock = GeneralDockManager.primary
-    if not dock or not dock.DOCKED_CHAT_FRAMES then return end
-
-    GeneralDockManager:UpdateTabs()
-
-    local index
-    for i, f in ipairs(dock.DOCKED_CHAT_FRAMES) do
-        if f == frame then
-            index = i
-            break
-        end
-    end
-
-    if index then
-        table.remove(dock.DOCKED_CHAT_FRAMES, index)
-        table.insert(dock.DOCKED_CHAT_FRAMES, frame)
-        GeneralDockManager:LayoutTabs()
-    end
-end
-
-------------------------------------------------------------
--- Order tab when running with ElvUI
-------------------------------------------------------------
-local function MoveTabToEnd_ElvUI(tabName)
-    local E = ElvUI[1]
-    local db = ElvDB and ElvDB.chat and ElvDB.chat.chatHistoryTab
-    if not (E and db) then return end
-
-    -- Remove existing entry
-    for i, name in ipairs(db) do
-        if name == tabName then
-            table.remove(db, i)
-            break
-        end
-    end
-
-    -- Add to end
-    table.insert(db, tabName)
-
-    -- Force ElvUI to rebuild chat layout
-    E:PositionChat(true)
+    if FCF_SelectDockFrame then FCF_SelectDockFrame(frame) end
 end
 
 ------------------------------------------------------------
@@ -218,13 +162,10 @@ local function EnsureGuildTabExists()
     if frame then
         return frame -- Do NOT modify existing tabs
     end
-
     frame = FCF_OpenNewWindow(TARGET_TAB_NAME)
     FCF_SetLocked(frame, true)
-
     SafeDock(frame)
     ConfigureGuildTab(frame)
-
     return frame
 end
 
@@ -234,18 +175,12 @@ end
 ------------------------------------------------------------
 local function RefreshNameCache()
     if not IsInGuild() then return end
-
     local now = GetTime()
     if (now - GR_lastRefreshTime) < GR_REFRESH_DEBOUNCE then
-        if GRPresenceTrace then
-            print("|cffff8800[GR Trace]|r RefreshNameCache skipped (debounce).")
-        end
         return
     end
     GR_lastRefreshTime = now
-
     wipe(nameClassCache)
-
     local num = GetNumGuildMembers()
     for i = 1, num do
         local name, _, _, _, _, _, _, _, _, _, classFilename = GetGuildRosterInfo(i)
@@ -253,17 +188,12 @@ local function RefreshNameCache()
             local shortName, realm = GR_NormalizeName(name)
             if not shortName then shortName = name; realm = GetRealmName() end
             local fullName = shortName .. "-" .. realm
-
             nameClassCache[shortName] = classFilename
             nameClassCache[fullName]  = classFilename
-
             GR_CacheName(fullName)
         end
     end
-
-    if GRPresenceTrace then
-        print("|cff00ff00[GR Trace]|r RefreshNameCache completed: " .. tostring(num) .. " entries.")
-    end
+    Trace("[Cache] " .. num .. " members refreshed")
 end
 
 ------------------------------------------------------------
@@ -271,9 +201,7 @@ end
 ------------------------------------------------------------
 local function GetColoredPlayerLink(fullName)
     if not fullName then return "" end
-
     local nameOnly = fullName:gsub("%-.*", "")
-
     local class = nameClassCache[fullName]
     if class then
         local color = RAID_CLASS_COLORS[class]
@@ -281,15 +209,7 @@ local function GetColoredPlayerLink(fullName)
             return "|Hplayer:" .. fullName .. "|h|c" .. color.colorStr .. nameOnly .. "|r|h"
         end
     end
-
     return "|Hplayer:" .. fullName .. "|h[" .. nameOnly .. "]|h"
-end
-
-------------------------------------------------------------
--- Escape Lua pattern characters in a name
-------------------------------------------------------------
-local function EscapePattern(text)
-    return gsub(text, "(%W)", "%%%1")
 end
 
 ------------------------------------------------------------
@@ -297,31 +217,12 @@ end
 ------------------------------------------------------------
 local function LinkTwoNames(msg, name1, name2)
     if name1 then
-        msg = gsub(msg, EscapePattern(name1), GetColoredPlayerLink(name1), 1)
+        msg = gsub(msg, gsub(name1, "(%W)", "%%%1"), GetColoredPlayerLink(name1), 1)
     end
     if name2 then
-        msg = gsub(msg, EscapePattern(name2), GetColoredPlayerLink(name2), 1)
+        msg = gsub(msg, gsub(name2, "(%W)", "%%%1"), GetColoredPlayerLink(name2), 1)
     end
     return msg
-end
-
-------------------------------------------------------------
--- Debug: unhandled system messages
-------------------------------------------------------------
-local GRDebugEnabled = false
-local lastDebugMsg = nil
-
-SLASH_GRDEBUG1 = "/grdebug"
-SlashCmdList["GRDEBUG"] = function()
-    GRDebugEnabled = not GRDebugEnabled
-    print("|cff00ff00GuildRouter Debug:|r " .. (GRDebugEnabled and "ON" or "OFF"))
-end
-
-local function DebugUnhandledSystemMessage(msg)
-    if not GRDebugEnabled then return end
-    if msg == lastDebugMsg then return end
-    lastDebugMsg = msg
-    print("|cffff8800[GR Debug]|r Unhandled system message: " .. msg)
 end
 
 ------------------------------------------------------------
@@ -329,35 +230,17 @@ end
 ------------------------------------------------------------
 local function RequestRosterSafe()
     if not IsInGuild() then return end
-
     local now = GetTime()
     if (now - GR_lastRefreshRequest) < GR_REFRESH_REQUEST_COOLDOWN then
-        if GRPresenceTrace then
-            print("|cffff8800[GR Trace]|r Skipping roster request (cooldown).")
-        end
         return
     end
     GR_lastRefreshRequest = now
-
     if C_GuildInfo and C_GuildInfo.GuildRoster then
         C_GuildInfo.GuildRoster()
-        if GRPresenceTrace then
-            print("|cffff8800[GR Trace]|r Requested roster via C_GuildInfo.GuildRoster().")
-        end
     elseif RequestGuildRoster then
         RequestGuildRoster()
-        if GRPresenceTrace then
-            print("|cffff8800[GR Trace]|r Requested roster via RequestGuildRoster().")
-        end
     elseif GuildRoster then
         GuildRoster()
-        if GRPresenceTrace then
-            print("|cffff8800[GR Trace]|r Requested roster via GuildRoster().")
-        end
-    else
-        if GRPresenceTrace then
-            print("|cffff8800[GR Trace]|r No roster request API available; waiting for GUILD_ROSTER_UPDATE.")
-        end
     end
 end
 
@@ -369,13 +252,30 @@ local function IsGuildMember(fullName)
 end
 
 ------------------------------------------------------------
+-- Match roster change patterns (promote, demote, rank, notes)
+------------------------------------------------------------
+local function MatchRosterChange(msg)
+    local patterns = {
+        "^(.-) has promoted (.-) to ",
+        "^(.-) has demoted (.-) to ",
+        "^(.-) has changed the guild rank of (.-) from ",
+        "^(.-) has changed the Officer Note for (.-)%.",
+        "^(.-) has changed the Public Note for (.-)%.",
+    }
+    for _, pat in ipairs(patterns) do
+        local a, t = match(msg, pat)
+        if a and t then return a, t end
+    end
+    return nil, nil
+end
+
+------------------------------------------------------------
 -- Core filter: reroute and reformat guild-related messages
 ------------------------------------------------------------
 local function FilterGuildMessages(self, event, msg, sender, ...)
     if not targetFrame then
         targetFrame = FindTargetFrame() or EnsureGuildTabExists()
     end
-
     -- System messages
     if event == "CHAT_MSG_SYSTEM" then
         -- Suppress Blizzard's system echo of guild achievements
@@ -385,89 +285,60 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         if find(msg, "Message of the Day") then
             return true
         end
-
         -- Join / Leave
         local joinName  = match(msg, "^(.-) has joined the guild")
         local leaveName = match(msg, "^(.-) has left the guild")
         local name = joinName or leaveName
-
         if name then
             local formatted = GetColoredPlayerLink(name) ..
                 (joinName and " has joined the guild." or " has left the guild.")
-
             local now = GetTime()
             if formatted == lastJoinLeaveMessage and (now - lastJoinLeaveTime) < 1 then
                 return true
             end
-
             lastJoinLeaveMessage = formatted
             lastJoinLeaveTime    = now
-
             targetFrame:AddMessage(formatted)
             return true
         end
-
         ------------------------------------------------------------
         -- Login / Logout announcements (presence routing)
         ------------------------------------------------------------
         -- Match hyperlink format first (ElvUI, Blizzard modern)
         local nameOnline  = msg:match("|Hplayer:([^:|]+).* has come online")
         local nameOffline = msg:match("|Hplayer:([^:|]+).* has gone offline")
-
         -- Fallback: plain text (older Blizzard format)
         if not nameOnline then
             nameOnline = msg:match("^(%S+) has come online")
         end
         if not nameOffline then
             nameOffline = msg:match("^(%S+) has gone offline")
-        end
-        
+        end     
         local name = nameOnline or nameOffline
         if name then
             ------------------------------------------------------------
             -- Resolve short names (e.g., "Leeroy") to full names
             ------------------------------------------------------------
             local fullName = GR_ResolveName(name)
-
             ------------------------------------------------------------
             -- Presence mode: off
             ------------------------------------------------------------
             if GRPresenceMode == "off" then
-                if GRPresenceTrace then
-                    print("|cffff8800[GR Trace]|r Presence ignored (mode=off): " .. msg)
-                end
                 return false
             end
-            if GRPresenceTrace then
-                print("|cffff8800[GR Trace]|r Presence lookup: fullName='" .. tostring(fullName) .. "'; lookup=" .. tostring(nameClassCache[fullName]))
-            end
-
             ------------------------------------------------------------
             -- Guild-only mode: ignore non-guild members (with on-demand refresh)
             ------------------------------------------------------------
             -- Try a direct lookup first
             local isGuild = IsGuildMember(fullName)
-
             -- If not found, request a roster refresh (throttled) and try a single re-check
             if not isGuild then
-                if GRPresenceTrace then
-                    print("|cffff8800[GR Trace]|r Presence lookup miss for: " .. tostring(fullName) .. " — requesting roster.")
-                end
-
-                -- Throttled roster request helper (must exist elsewhere in file)
                 RequestRosterSafe()
-
-                -- Immediate re-check in case the cache was already populated
                 isGuild = IsGuildMember(fullName)
             end
-
             if GRPresenceMode == "guild-only" and not isGuild then
-                if GRPresenceTrace then
-                    print("|cffff8800[GR Trace]|r Presence ignored (not guild): " .. msg)
-                end
                 return false
             end
-
             ------------------------------------------------------------
             -- Format ONLINE/OFFLINE with colour
             ------------------------------------------------------------
@@ -477,14 +348,12 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             else
                 status = "|cffff4040offline|r"  -- dark red
             end
-
             local formatted
             if nameOnline then
                 formatted = GetColoredPlayerLink(fullName) .. " has come " .. status .. "."
             else
                 formatted = GetColoredPlayerLink(fullName) .. " has gone " .. status .. "."
             end
-
             ------------------------------------------------------------
             -- De-duplicate
             ------------------------------------------------------------
@@ -492,51 +361,17 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             if formatted == lastJoinLeaveMessage and (now - lastJoinLeaveTime) < 1 then
                 return true
             end
-
             lastJoinLeaveMessage = formatted
             lastJoinLeaveTime    = now
-
-            ------------------------------------------------------------
-            -- Route to Guild tab
-            ------------------------------------------------------------
-            if GRPresenceTrace then
-                print("|cff00ff00[GR Trace]|r Presence routed: " .. formatted)
-            end
-
             targetFrame:AddMessage(formatted)
             return true
         end
-
-
-        -- Roster changes
-        local actor, target
-        actor, target = match(msg, "^(.-) has promoted (.-) to ")
-        if actor and target then
-            targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
-            return true
-        end
-        actor, target = match(msg, "^(.-) has demoted (.-) to ")
-        if actor and target then
-            targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
-            return true
-        end
-        actor, target = match(msg, "^(.-) has changed the guild rank of (.-) from ")
-        if actor and target then
-            targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
-            return true
-        end
-        actor, target = match(msg, "^(.-) has changed the Officer Note for (.-)%.")
-        if actor and target then
-            targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
-            return true
-        end
-        actor, target = match(msg, "^(.-) has changed the Public Note for (.-)%.")
+        local actor, target = MatchRosterChange(msg)
         if actor and target then
             targetFrame:AddMessage(LinkTwoNames(msg, actor, target))
             return true
         end
     end
-
     -- Guild achievements
     if event == "CHAT_MSG_GUILD_ACHIEVEMENT" then
         local player = sender or "Unknown"
@@ -546,11 +381,6 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         targetFrame:AddMessage(formatted)
         return true
     end
-
-    if DebugUnhandledSystemMessage then
-        DebugUnhandledSystemMessage(msg)
-    end
-
     return false
 end
 
@@ -559,7 +389,6 @@ end
 ------------------------------------------------------------
 ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", FilterGuildMessages)
 GR_Events["CHAT_MSG_SYSTEM"] = true
-
 ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD_ACHIEVEMENT", FilterGuildMessages)
 GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] = true
 
@@ -587,185 +416,33 @@ end)
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("PLAYER_LOGIN")
 initFrame:SetScript("OnEvent", function()
-
     ------------------------------------------------------------
     -- Load SavedVariables (create table if missing)
     ------------------------------------------------------------
     GuildRouterDB = GuildRouterDB or {}
-
     -- Default presence mode: guild-only
     if GuildRouterDB.presenceMode == nil then
         GuildRouterDB.presenceMode = "guild-only"
     end
-
     -- Default trace mode: off
     if GuildRouterDB.presenceTrace == nil then
         GuildRouterDB.presenceTrace = false
     end
-
     -- Apply to runtime
     GRPresenceMode  = GuildRouterDB.presenceMode
     GRPresenceTrace = GuildRouterDB.presenceTrace
-
     -- Existing startup logic
     targetFrame = FindTargetFrame() or EnsureGuildTabExists()
-
     -- Request a fresh guild roster; RefreshNameCache will run on GUILD_ROSTER_UPDATE
     if IsInGuild() then
-        if C_GuildInfo and C_GuildInfo.GuildRoster then
-            C_GuildInfo.GuildRoster()
-        elseif RequestGuildRoster then
-            RequestGuildRoster()
-        elseif GuildRoster then
-            GuildRoster()
-        else
-            if GRPresenceTrace then
-                print("|cffff8800[GR Trace]|r No roster request API available; waiting for GUILD_ROSTER_UPDATE.")
-            end
-        end
+        RequestRosterSafe()
     end
 end)
 
-------------------------------------------------------------
--- Inspect internal caches (used in debugging)
-------------------------------------------------------------
 SLASH_GRDBG1 = "/grdbg"
 SlashCmdList["GRDBG"] = function()
-    if not GRPresenceTrace then
-        print("|cffff8800[GR Trace]|r Debugging is disabled. Enable with /grpresence trace")
-        return
-    end
-
-    print("|cff00ff00[GR Debug]|r Inspecting caches...")
-
-    local nameCount = 0
-    for k,v in pairs(GR_NameCache or {}) do nameCount = nameCount + 1 end
-    print("  GR_NameCache entries: " .. nameCount)
-    if nameCount > 0 then
-        for k,v in pairs(GR_NameCache) do
-            print("    sample GR_NameCache: " .. k .. " -> " .. tostring(v))
-            break
-        end
-    end
-
-    if nameClassCache then
-        local classCount = 0
-        for k,v in pairs(nameClassCache) do classCount = classCount + 1 end
-        print("  nameClassCache entries: " .. classCount)
-        if classCount > 0 then
-            for k,v in pairs(nameClassCache) do
-                print("    sample nameClassCache: " .. k .. " -> " .. tostring(v))
-                break
-            end
-        end
-    else
-        print("  nameClassCache: nil (not visible)")
-    end
-
-    if GR_GetCacheInfo then
-        local info = GR_GetCacheInfo()
-        if info then
-            print("  GR_GetCacheInfo() -> names=" .. tostring(info.names) .. ", class=" .. tostring(info.class) .. ", realm=" .. tostring(info.realm))
-        else
-            print("  GR_GetCacheInfo() -> nil")
-        end
-    else
-        print("  GR_GetCacheInfo() not defined")
-    end
-
-    print("  GR_Events table present: " .. tostring(GR_Events ~= nil))
-end
-
-------------------------------------------------------------
--- Status, reporting guild tab info
-------------------------------------------------------------
-local function GR_GetGuildTabInfo()
-    for i = 1, NUM_CHAT_WINDOWS do
-        local name = GetChatWindowInfo(i)
-        if name == TARGET_TAB_NAME then
-            local frame = _G["ChatFrame"..i]
-            return {
-                index = i,
-                frame = frame,
-                docked = frame.isDocked or false,
-                visible = frame:IsShown(),
-                locked = frame.isLocked or false,
-            }
-        end
-    end
-    return nil
-end
-
-------------------------------------------------------------
--- Status, mesage groups assigne dto Guild tab
-------------------------------------------------------------
-local function GR_GetMessageGroups(frame)
-    local groups = {}
-    if not frame then return groups end
-
-    local id = frame:GetID()
-    for _, group in ipairs({
-        "SYSTEM", "GUILD", "OFFICER", "GUILD_ACHIEVEMENT",
-        "CHANNEL", "SAY", "YELL", "WHISPER", "PARTY", "RAID"
-    }) do
-        if ChatFrame_ContainsMessageGroup(frame, group) then
-            table.insert(groups, group)
-        end
-    end
-
-    return groups
-end
-
-------------------------------------------------------------
--- Status, memory use
-------------------------------------------------------------
-local function GR_GetMemory()
-    UpdateAddOnMemoryUsage()
-    return GetAddOnMemoryUsage("GuildRouter")
-end
-
-------------------------------------------------------------
--- Status, cache size
-------------------------------------------------------------
-local function GR_GetCacheInfo()
-    local nameCount = 0
-    for _ in pairs(GR_NameCache or {}) do
-        nameCount = nameCount + 1
-    end
-
-    local classCount = 0
-    for _ in pairs(nameClassCache or {}) do
-        classCount = classCount + 1
-    end
-
-    return {
-        names = nameCount,
-        class = classCount,
-        realm = 0,
-    }
-end
-
-------------------------------------------------------------
--- Status, eventy hook status
-------------------------------------------------------------
-local function GR_GetEventStatus()
-    return {
-        system  = GR_Events and GR_Events["CHAT_MSG_SYSTEM"]  and "yes" or "no",
-        guild   = GR_Events and GR_Events["CHAT_MSG_GUILD"]   and "yes" or "no",
-        ach     = GR_Events and GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] and "yes" or "no",
-        roster  = GR_Events and GR_Events["GUILD_ROSTER_UPDATE"] and "yes" or "no",
-    }
-end
-
-------------------------------------------------------------
--- Status, last routed msg and last error
-------------------------------------------------------------
-function GR_RecordMessage(msg)
-    GR_LastMessage = msg
-end
-
-function GR_RecordError(err)
-    GR_LastError = err
+    local cache = GR_GetCacheInfo()
+    PrintMsg("Cache: names=" .. cache.names .. " class=" .. cache.class)
 end
 
 ------------------------------------------------------------
@@ -774,71 +451,42 @@ end
 SLASH_GRRESET1 = "/grreset"
 SlashCmdList["GRRESET"] = function()
     if ElvUI then
-        ------------------------------------------------
-        -- ElvUI: DO NOT DELETE OR RECREATE
-        -- Just find the existing tab and repair it
-        ------------------------------------------------
-        local frame
-        for i = 1, NUM_CHAT_WINDOWS do
-            if GetChatWindowInfo(i) == TARGET_TAB_NAME then
-                frame = _G["ChatFrame"..i]
-                break
-            end
-        end
-
+        local frame = FindTargetFrame()
         if not frame then
-            print("|cffff0000GuildRouter:|r Under ElvUI, the Guild tab must be created once manually.")
-            print("Open Chat → Create New Window → Name it: Guild")
+            PrintMsg("ElvUI mode: create tab manually via Chat → Create Window")
             return
         end
-
-        targetFrame = frame
-        ConfigureGuildTab(targetFrame)
-
-        print("|cff00ff00GuildRouter:|r Guild tab repaired (ElvUI).")
+        ConfigureGuildTab(frame)
+        PrintMsg("Guild tab repaired (ElvUI).")
         return
     end
-
-    ------------------------------------------------
-    -- Blizzard UI: full delete + recreate
-    ------------------------------------------------
     for i = 1, NUM_CHAT_WINDOWS do
         if GetChatWindowInfo(i) == TARGET_TAB_NAME then
             FCF_Close(_G["ChatFrame"..i])
             break
         end
     end
-
     targetFrame = EnsureGuildTabExists()
     ConfigureGuildTab(targetFrame)
     SafeDock(targetFrame)
-
-    print("|cff00ff00GuildRouter:|r Guild tab has been reset.")
+    PrintMsg("Guild tab has been reset.")
 end
 
 ------------------------------------------------------------
--- /grdelete — permanently delete the Guild tab
+-- /grdelete — delete the Guild tab
 ------------------------------------------------------------
 SLASH_GRDELETE1 = "/grdelete"
 SlashCmdList["GRDELETE"] = function()
     for i = 1, NUM_CHAT_WINDOWS do
-        local name = GetChatWindowInfo(i)
-        if name == TARGET_TAB_NAME then
+        if GetChatWindowInfo(i) == TARGET_TAB_NAME then
             local frame = _G["ChatFrame"..i]
-
-            -- Undock it first (required for deletion)
-            if frame.isDocked then
-                FCF_UnDockFrame(frame)
-            end
-
-            -- Close (this deletes the window when undocked)
+            if frame.isDocked then FCF_UnDockFrame(frame) end
             FCF_Close(frame)
-
-            print("|cffff0000GuildRouter:|r Guild tab permanently deleted.")
+            PrintMsg("Guild tab deleted.")
             return
         end
     end
-    print("|cffff8800GuildRouter:|r No Guild tab found to delete.")
+    PrintMsg("Guild tab not found.")
 end
 
 ------------------------------------------------------------
@@ -848,33 +496,11 @@ SLASH_GRSOURCES1 = "/grsources"
 SlashCmdList["GRSOURCES"] = function()
     local frame = FindTargetFrame()
     if not frame then
-        print("|cffff0000GuildRouter:|r Guild tab not found.")
+        PrintMsg("Guild tab not found.")
         return
     end
-
-    print("|cff00ff00GuildRouter Sources for 'Guild' tab:|r")
-
-    -- The message groups we care about
-    local groups = {
-        "SYSTEM",
-        "GUILD",
-        "OFFICER",
-        "GUILD_ACHIEVEMENT",
-    }
-
-    local found = false
-    for _, group in ipairs(groups) do
-        if ChatFrame_ContainsMessageGroup(frame, group) then
-            print("  • Message Group: " .. group)
-            found = true
-        end
-    end
-
-    if not found then
-        print("  • (No message groups enabled)")
-    end
+    PrintMsg("Sources: " .. table.concat(GR_GetMessageGroups(frame), ", "))
 end
-
 
 ------------------------------------------------------------
 -- /grfix — repair Guild tab message groups
@@ -882,15 +508,9 @@ end
 SLASH_GRFIX1 = "/grfix"
 SlashCmdList["GRFIX"] = function()
     local frame = FindTargetFrame() or EnsureGuildTabExists()
-
-    ChatFrame_AddMessageGroup(frame, "SYSTEM")
-    ChatFrame_AddMessageGroup(frame, "GUILD")
-    ChatFrame_AddMessageGroup(frame, "OFFICER")
-    ChatFrame_AddMessageGroup(frame, "GUILD_ACHIEVEMENT")
-
+    ConfigureGuildTab(frame)
     SafeDock(frame)
-
-    print("|cff00ff00GuildRouter:|r Guild tab sources repaired.")
+    PrintMsg("Guild tab sources repaired.")
 end
 
 ------------------------------------------------------------
@@ -899,35 +519,23 @@ end
 SLASH_GRTEST1 = "/grtest"
 SlashCmdList["GRTEST"] = function(arg)
     local frame = FindTargetFrame() or EnsureGuildTabExists()
-
-    if arg == "join" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has joined the guild.")
-        print("|cff00ff00GR Test:|r join fired.")
-    elseif arg == "leave" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has left the guild.")
-        print("|cff00ff00GR Test:|r leave fired.")
-    elseif arg == "promote" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has promoted LeeroyJenkins to rank Member.")
-        print("|cff00ff00GR Test:|r promote fired.")
-    elseif arg == "demote" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has demoted LeeroyJenkins to rank Initiate.")
-        print("|cff00ff00GR Test:|r demote fired.")
-    elseif arg == "note" then
-        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", "ArcNineOhNine has changed the Officer Note for LeeroyJenkins.")
-        print("|cff00ff00GR Test:|r officer note fired.")
+    local tests = {
+        join = "ArcNineOhNine has joined the guild.",
+        leave = "ArcNineOhNine has left the guild.",
+        promote = "ArcNineOhNine has promoted LeeroyJenkins to rank Member.",
+        demote = "ArcNineOhNine has demoted LeeroyJenkins to rank Initiate.",
+        note = "ArcNineOhNine has changed the Officer Note for LeeroyJenkins.",
+    }
+    if tests[arg] then
+        FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", tests[arg])
+        PrintMsg("Test: " .. arg)
     elseif arg == "ach" then
         FilterGuildMessages(nil, "CHAT_MSG_GUILD_ACHIEVEMENT",
             "%s has earned the achievement %s!", "ArcNineOhNine-Proudmoore",
             "|cffffff00|Hachievement:6:Player-1234-00000000:1:1:1:1:4294967295:4294967295:4294967295:4294967295|h[Level 10]|h|r")
-        print("|cff00ff00GR Test:|r achievement fired.")
+        PrintMsg("Test: ach")
     else
-        print("|cff00ff00GuildRouter Test Commands:|r")
-        print("  /grtest join")
-        print("  /grtest leave")
-        print("  /grtest promote")
-        print("  /grtest demote")
-        print("  /grtest note")
-        print("  /grtest ach")
+        PrintMsg("Tests: join, leave, promote, demote, note, ach")
     end
 end
 
@@ -937,37 +545,19 @@ end
 SLASH_GRPRESENCE1 = "/grpresence"
 SlashCmdList["GRPRESENCE"] = function(arg)
     arg = arg and arg:lower() or ""
-
-    if arg == "guild-only" then
-        GRPresenceMode = "guild-only"
-        GuildRouterDB.presenceMode = "guild-only"
-        print("|cff00ff00GuildRouter:|r Presence mode set to guild-only.")
+    local modes = { ["guild-only"] = true, ["all"] = true, ["off"] = true }
+    if modes[arg] then
+        GRPresenceMode = arg
+        GuildRouterDB.presenceMode = arg
+        PrintMsg("Presence: " .. arg)
         return
-
-    elseif arg == "all" then
-        GRPresenceMode = "all"
-        GuildRouterDB.presenceMode = "all"
-        print("|cff00ff00GuildRouter:|r Presence mode set to all.")
-        return
-
-    elseif arg == "off" then
-        GRPresenceMode = "off"
-        GuildRouterDB.presenceMode = "off"
-        print("|cff00ff00GuildRouter:|r Presence announcements disabled.")
-        return
-
     elseif arg == "trace" then
         GRPresenceTrace = not GRPresenceTrace
         GuildRouterDB.presenceTrace = GRPresenceTrace
-        print("|cff00ff00GuildRouter Trace:|r " .. (GRPresenceTrace and "ON" or "OFF"))
+        PrintMsg("Trace: " .. (GRPresenceTrace and "ON" or "OFF"))
         return
     end
-
-    print("|cff00ff00GuildRouter Presence Options:|r")
-    print("  /grpresence guild-only  - Only guild members (default)")
-    print("  /grpresence all         - Everyone")
-    print("  /grpresence off         - Disable presence announcements")
-    print("  /grpresence trace       - Toggle trace output")
+    PrintMsg("Presence: guild-only (default), all, off, trace")
 end
 
 ------------------------------------------------------------
@@ -977,12 +567,11 @@ SLASH_GRDOCK1 = "/grdock"
 SlashCmdList["GRDOCK"] = function()
     local frame = FindTargetFrame()
     if not frame then
-        print("|cffff0000GuildRouter:|r Guild tab not found.")
+        PrintMsg("Guild tab not found.")
         return
     end
-
     SafeDock(frame)
-    print("|cff00ff00GuildRouter:|r Guild tab docked.")
+    PrintMsg("Guild tab docked.")
 end
 
 ------------------------------------------------------------
@@ -995,33 +584,12 @@ SlashCmdList["GRNAMES"] = function()
         print("  " .. name .. " → " .. realm)
     end
 end
-
-------------------------------------------------------------
--- Helper: detect ElvUI
-------------------------------------------------------------
-local isElvUI = (ElvUI ~= nil)
-
-------------------------------------------------------------
--- Helper: find the Guild tab
-------------------------------------------------------------
 local function GR_GetGuildTabInfo()
     for i = 1, NUM_CHAT_WINDOWS do
-        local name = GetChatWindowInfo(i)
-        if name == TARGET_TAB_NAME then
-            local frame = _G["ChatFrame"..i]
-            return {
-                index   = i,
-                frame   = frame,
-                docked  = frame.isDocked or false,
-                visible = frame:IsShown(),
-                locked  = frame.isLocked or false,
-                parent  = frame:GetParent() and frame:GetParent():GetName() or "nil",
-                width   = frame:GetWidth(),
-                height  = frame:GetHeight(),
-            }
+        if GetChatWindowInfo(i) == TARGET_TAB_NAME then
+            return { index = i, frame = _G["ChatFrame"..i], docked = _G["ChatFrame"..i].isDocked }
         end
     end
-    return nil
 end
 
 ------------------------------------------------------------
@@ -1030,8 +598,6 @@ end
 local function GR_GetMessageGroups(frame)
     local groups = {}
     if not frame then return groups end
-
-    local id = frame:GetID()
     for _, group in ipairs({
         "SYSTEM", "GUILD", "OFFICER", "GUILD_ACHIEVEMENT",
         "SAY", "YELL", "WHISPER", "PARTY", "RAID",
@@ -1041,213 +607,65 @@ local function GR_GetMessageGroups(frame)
             table.insert(groups, group)
         end
     end
-
     return groups
 end
-
-------------------------------------------------------------
--- Helper: memory usage
-------------------------------------------------------------
-local function GR_GetMemory()
-    UpdateAddOnMemoryUsage()
-    return GetAddOnMemoryUsage("GuildRouter")
-end
-
-------------------------------------------------------------
--- Status, cache size (definitive)
-------------------------------------------------------------
 local function GR_GetCacheInfo()
     local nameCount = 0
     for _ in pairs(GR_NameCache or {}) do
         nameCount = nameCount + 1
     end
-
     local classCount = 0
     for _ in pairs(nameClassCache or {}) do
         classCount = classCount + 1
     end
-
-    return {
-        names = nameCount,
-        class = classCount,
-        realm = 0,
-    }
+    return { names = nameCount, class = classCount }
 end
-
-
-------------------------------------------------------------
--- Helper: event hook status
-------------------------------------------------------------
 local function GR_GetEventStatus()
     return {
-        system = GR_Events and GR_Events["CHAT_MSG_SYSTEM"] and "yes" or "no",
-        guild  = GR_Events and GR_Events["CHAT_MSG_GUILD"] and "yes" or "no",
-        ach    = GR_Events and GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] and "yes" or "no",
-        roster = GR_Events and GR_Events["GUILD_ROSTER_UPDATE"] and "yes" or "no",
+        system = GR_Events["CHAT_MSG_SYSTEM"] and "yes" or "no",
+        ach    = GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] and "yes" or "no",
+        roster = GR_Events["GUILD_ROSTER_UPDATE"] and "yes" or "no",
     }
 end
 
 ------------------------------------------------------------
--- Last routed message / last error tracking
-------------------------------------------------------------
-GR_LastMessage = GR_LastMessage or "none"
-GR_LastError   = GR_LastError   or "none"
-
-function GR_RecordMessage(msg)
-    GR_LastMessage = msg
-end
-
-function GR_RecordError(err)
-    GR_LastError = err
-end
-
-------------------------------------------------------------
--- /grstatus — short (default) or full diagnostics
+-- /grstatus — show diagnostic info
 ------------------------------------------------------------
 SLASH_GRSTATUS1 = "/grstatus"
 SlashCmdList["GRSTATUS"] = function(msg)
-    local full = (msg and msg:lower():match("full"))
-
-    print("|cff00ff00GuildRouter Status|r")
-    print("----------------------------------------")
-
-    ------------------------------------------------
-    -- UI mode
-    ------------------------------------------------
-    print("UI mode: " .. (isElvUI and "ElvUI" or "Blizzard"))
-
-    ------------------------------------------------
-    -- Guild tab info
-    ------------------------------------------------
+    local full = msg and msg:lower():match("full")
+    PrintMsg("Status")
+    print("UI: " .. (isElvUI and "ElvUI" or "Blizzard"))
     local info = GR_GetGuildTabInfo()
     if info then
-        print("Guild tab: ChatFrame" .. info.index .. (info.docked and " (docked)" or " (undocked)"))
+        print("Tab: ChatFrame" .. info.index .. (info.docked and " (docked)" or ""))
+        if not full then return end
+        print("  Visible: " .. tostring(info.visible) .. ", Locked: " .. tostring(info.locked))
+        local groups = GR_GetMessageGroups(info.frame)
+        print("  Groups: " .. (#groups > 0 and table.concat(groups, ", ") or "none"))
     else
-        print("Guild tab: |cffff0000NOT FOUND|r")
-    end
-
-    ------------------------------------------------
-    -- Short mode ends here unless full requested
-    ------------------------------------------------
-    if not full then
-        print("Presence mode: " .. tostring(GRPresenceMode))
-        print("Trace mode:    " .. tostring(GRPresenceTrace))
-
-        if info then
-            local groups = GR_GetMessageGroups(info.frame)
-            print("Message groups: " .. #groups .. " assigned")
-        end
-
-        print("Last routed: " .. (GR_LastMessage or "none"))
-        print("Last error:  " .. (GR_LastError or "none"))
+        print("Tab: NOT FOUND")
         return
     end
-
-    ------------------------------------------------
-    -- FULL MODE BELOW
-    ------------------------------------------------
-    print("")
-    print("FULL DIAGNOSTICS")
-    print("----------------------------------------")
-
-    ------------------------------------------------
-    -- Detailed Guild tab info
-    ------------------------------------------------
-    if info then
-        print("Guild tab details:")
-        print("  Frame: ChatFrame" .. info.index)
-        print("  Docked:  " .. tostring(info.docked))
-        print("  Visible: " .. tostring(info.visible))
-        print("  Locked:  " .. tostring(info.locked))
-        print("  Parent:  " .. info.parent)
-        print("  Size:    " .. string.format("%.0f x %.0f", info.width, info.height))
-    end
-
-    ------------------------------------------------
-    -- Message groups
-    ------------------------------------------------
-    if info then
-        print("Message groups:")
-        local groups = GR_GetMessageGroups(info.frame)
-        if #groups == 0 then
-            print("  |cffff0000None assigned|r")
-        else
-            for _, g in ipairs(groups) do
-                print("  " .. g)
-            end
-        end
-    end
-
-    ------------------------------------------------
-    -- SavedVariables
-    ------------------------------------------------
-    print("SavedVariables:")
-    print("  presenceMode  = " .. tostring(GRPresenceMode))
-    print("  presenceTrace = " .. tostring(GRPresenceTrace))
-
-    ------------------------------------------------
-    -- Cache info
-    ------------------------------------------------
     local cache = GR_GetCacheInfo()
-    print("Caches:")
-    print("  Name cache:  " .. cache.names)
-    print("  Class cache: " .. cache.class)
-    print("  Realm cache: " .. cache.realm)
-
-    ------------------------------------------------
-    -- Memory usage
-    ------------------------------------------------
-    print("Memory usage: " .. string.format("%.1f KB", GR_GetMemory()))
-
-    ------------------------------------------------
-    -- Event hooks
-    ------------------------------------------------
+    print("Caches: names=" .. cache.names .. ", class=" .. cache.class)
     local ev = GR_GetEventStatus()
-    print("Events hooked:")
-    print("  CHAT_MSG_SYSTEM:            " .. ev.system)
-    print("  CHAT_MSG_GUILD:             " .. ev.guild)
-    print("  CHAT_MSG_GUILD_ACHIEVEMENT: " .. ev.ach)
-    print("  GUILD_ROSTER_UPDATE:        " .. ev.roster)
-
-    ------------------------------------------------
-    -- Last message / error
-    ------------------------------------------------
-    print("Last routed: " .. (GR_LastMessage or "none"))
-    print("Last error:  " .. (GR_LastError or "none"))
-
-    ------------------------------------------------
-    -- Version (optional)
-    ------------------------------------------------
-    if GR_VERSION then
-        print("Version: " .. GR_VERSION)
-    end
+    print("Events: sys=" .. ev.system .. ", ach=" .. ev.ach .. ", roster=" .. ev.roster)
 end
 
 ------------------------------------------------------------
--- /grforceroster — force acquire the guild roster
+-- /grforceroster — request guild roster
 ------------------------------------------------------------
 SLASH_GRFORCERO1 = "/grforceroster"
 SlashCmdList["GRFORCERO"] = function()
-    if GRPresenceTrace then
-        print("|cff00ff00GuildRouter:|r Forcing roster request (trace enabled).")
-    end
+    PrintMsg("Requesting roster...")
     RequestRosterSafe()
 end
 
 ------------------------------------------------------------
--- /grhelp — list all GuildRouter commands
+-- /grhelp — show commands
 ------------------------------------------------------------
 SLASH_GRHELP1 = "/grhelp"
 SlashCmdList["GRHELP"] = function()
-    print("|cff00ff00GuildRouter by ArcNineOhNine, commands:|r")
-    print(" /grstatus   - display status info, defaults to short unless `full` specified.")
-    print(" /grpresence - set & save login/out announcements (def=guild-only, all, off, trace)")
-    print(" /grdock     - dock the Guild tab if not visible")
-    print(" /grreset    - recreate the Guild tab")
-    print(" /grfix      - repair Guild tab message groups and dock the tab")
-    print(" /grdelete   - permanently delete the Guild tab")
-    print(" /grsources  - show message groups/channels for the Guild tab")
-    print(" /grtest     - simulate guild events (join, leave, promote, demote, note, ach)")
-    print(" /grdebug    - toggle debug mode for unhandled system messages")
-    print(" /grhelp     - show this command list")
+    PrintMsg("Commands: status, presence, dock, reset, fix, delete, sources, test, help")
 end

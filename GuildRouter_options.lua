@@ -7,6 +7,21 @@ f:SetScript("OnEvent", function(self, event, addon)
     ------------------------------------------------------------
     local panel = CreateFrame("Frame", "GuildRouterOptionsPanel", UIParent)
     panel.name = "GuildRouter"
+
+    ------------------------------------------------------------
+    -- Display addOn metadata heading
+    ------------------------------------------------------------
+    local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 20, -10)
+    title:SetText("GuildRouter  " .. (meta("GuildRouter", "Version") or ""))
+    local subtitle = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    subtitle:SetText(meta("GuildRouter", "Notes") or "")
+    local author = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    author:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -2)
+    author:SetText("Author: " .. (meta("GuildRouter", "Author") or ""))
+
     -- When the panel is shown, refresh the status text
     panel:SetScript("OnShow", function()
         if cbShow then
@@ -110,7 +125,7 @@ f:SetScript("OnEvent", function(self, event, addon)
         panel,
         "Show login/logout messages",
         "Toggle visibility of guild member login/logout notifications.",
-        20, -20,
+        20, -72,
         GRShowLoginLogout,
         function(val)
             GRShowLoginLogout = val
@@ -136,7 +151,7 @@ f:SetScript("OnEvent", function(self, event, addon)
             GRPresenceMode = val
             GuildRouterDB = GuildRouterDB or {}; GuildRouterDB.presenceMode = val
         end,
-        20, -70
+        20, -122
     )
 
     ------------------------------------------------------------
@@ -146,7 +161,7 @@ f:SetScript("OnEvent", function(self, event, addon)
         panel,
         "Debug: enable presence trace",
         "Print detailed presence routing debug information.",
-        20, -120,
+        20, -172,
         GRPresenceTrace,
         function(val)
             GRPresenceTrace = val
@@ -165,6 +180,7 @@ f:SetScript("OnEvent", function(self, event, addon)
             { text = "15 minutes", value = 900 },
             { text = "30 minutes", value = 1800 },
             { text = "1 hour (default)", value = 3600 },
+            { text = "2 hours", value = 7200 },
         },
         GuildRouterDB and GuildRouterDB.cacheValidity or 3600,
         function(val)
@@ -172,7 +188,7 @@ f:SetScript("OnEvent", function(self, event, addon)
             GuildRouterDB.cacheValidity = val
             GR_CACHE_VALIDITY = val
         end,
-        20, -170
+        20, -222
     )
     local cacheHelp = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     cacheHelp:SetPoint("TOPLEFT", ddCache, "BOTTOMLEFT", 20, -2)
@@ -181,5 +197,5 @@ f:SetScript("OnEvent", function(self, event, addon)
     ------------------------------------------------------------
     -- 5. Display command line text
     ------------------------------------------------------------
-    panel.helpBoxFrame, panel.helpBox = CreateTextPanel(panel, "Slash Commands (/grhelp):", 20, -240, 160, GR_GetHelpText)
+    panel.helpBoxFrame, panel.helpBox = CreateTextPanel(panel, "Slash Commands (/grhelp):", 20, -292, 160, GR_GetHelpText)
 end)

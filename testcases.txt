@@ -41,10 +41,4 @@ if you set grpresence trace , how do you disable? it is a toggle
 what does it actually show?
 
 Bugs.
-1. /grstatus not iterating through ALL subscribed channel in that chat frame
-2. UI get rid of box for current status, get rid of sliders for help box
-3. trace on only ever shows
-    [cache] 773 members refreshed
-    seems to show cache upadfted too often - 1 person comes online, shows msg 4x
-    is it updated once per msg in chat?? no?
-4. if deletye svared variables and reload, gets an error, if exit/restart no error
+1. guild member login/out messages are still going into General, if going gto Guild should not go to General

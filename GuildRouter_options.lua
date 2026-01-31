@@ -68,14 +68,14 @@ f:SetScript("OnEvent", function(self, event, addon)
     end
 
     ------------------------------------------------------------
-    -- Helper: display scrollable panels for status and help text
+    -- Helper: display panels for status and help text
     ------------------------------------------------------------
     local function CreateTextPanel(parent, labelText, x, y, height, getTextFunc)
         local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("TOPLEFT", x, y)
         label:SetText(labelText)
 
-        -- Use a simple non-scrollable text block (no scrollbar)
+        -- Use a simple text block
         local frame = CreateFrame("Frame", nil, parent)
         frame:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -5)
         frame:SetSize(500, height)
@@ -103,7 +103,6 @@ f:SetScript("OnEvent", function(self, event, addon)
     function GR_GetHelpText()
         return table.concat(GR_HELP_TEXT, "\n")
     end
-
     ------------------------------------------------------------
     -- 1. Checkbox: Show login/logout messages
     ------------------------------------------------------------
@@ -122,22 +121,17 @@ f:SetScript("OnEvent", function(self, event, addon)
     ------------------------------------------------------------
     -- 2. Dropdown: Presence mode
     ------------------------------------------------------------
-    local presenceItems = {
-        { text = "Off",        value = "off" },
-        { text = "Guild-only", value = "guild-only" },
-        { text = "All",        value = "all" },
-    }
-
-    local initialPresenceMode =
-        (GRPresenceMode == "guild-only" or GRPresenceMode == "off" or GRPresenceMode == "all")
-        and GRPresenceMode
-        or "guild-only"
-
     local ddPresence = CreateDropdown(
         panel,
         "Show login/logout messages for:",
-        presenceItems,
-        initialPresenceMode,
+        {
+            { text = "Off",        value = "off" },
+            { text = "Guild-only", value = "guild-only" },
+            { text = "All",        value = "all" },
+        },
+        (GRPresenceMode == "guild-only" or GRPresenceMode == "off" or GRPresenceMode == "all")
+            and GRPresenceMode
+            or "guild-only",
         function(val)
             GRPresenceMode = val
             GuildRouterDB = GuildRouterDB or {}; GuildRouterDB.presenceMode = val
@@ -152,7 +146,7 @@ f:SetScript("OnEvent", function(self, event, addon)
         panel,
         "Debug: enable presence trace",
         "Print detailed presence routing debug information.",
-        20, -110,
+        20, -120,
         GRPresenceTrace,
         function(val)
             GRPresenceTrace = val
@@ -161,33 +155,31 @@ f:SetScript("OnEvent", function(self, event, addon)
     )
 
     ------------------------------------------------------------
-    -- Cache validity dropdown (in seconds)
+    -- 4. Dropdown: Cache validity
     ------------------------------------------------------------
-    local cacheItems = {
-        { text = "5 minutes", value = 300 },
-        { text = "15 minutes", value = 900 },
-        { text = "30 minutes", value = 1800 },
-        { text = "1 hour (default)", value = 3600 },
-    }
-    local initialCache = GuildRouterDB and GuildRouterDB.cacheValidity or 3600
     local ddCache = CreateDropdown(
         panel,
         "Cache validity:",
-        cacheItems,
-        initialCache,
+        {
+            { text = "5 minutes", value = 300 },
+            { text = "15 minutes", value = 900 },
+            { text = "30 minutes", value = 1800 },
+            { text = "1 hour (default)", value = 3600 },
+        },
+        GuildRouterDB and GuildRouterDB.cacheValidity or 3600,
         function(val)
             GuildRouterDB = GuildRouterDB or {}
             GuildRouterDB.cacheValidity = val
             GR_CACHE_VALIDITY = val
         end,
-        20, -320
+        20, -170
     )
     local cacheHelp = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     cacheHelp:SetPoint("TOPLEFT", ddCache, "BOTTOMLEFT", 20, -2)
     cacheHelp:SetText("How long the in-memory guild cache is considered fresh (seconds). Larger values reduce refreshes.")
 
     ------------------------------------------------------------
-    -- Display command line text (no scrollbar)
+    -- 5. Display command line text
     ------------------------------------------------------------
-    panel.helpBoxFrame, panel.helpBox = CreateTextPanel(panel, "Slash Commands (/grhelp):", 20, -200, 160, GR_GetHelpText)
+    panel.helpBoxFrame, panel.helpBox = CreateTextPanel(panel, "Slash Commands (/grhelp):", 20, -240, 160, GR_GetHelpText)
 end)

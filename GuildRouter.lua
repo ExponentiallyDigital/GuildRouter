@@ -87,7 +87,11 @@ initFrame:SetScript("OnEvent", function(self, event, addon, ...)
             targetFrame = EnsureGuildTabExists()
         end
         -- debugging
-        print("DBG:init assigned GRPresenceMode="..tostring(GRPresenceMode).." GRPresenceTrace="..tostring(GRPresenceTrace).." GRShowLoginLogout="..tostring(GRShowLoginLogout))
+        PrintMsg(
+        "DBG:init assigned GRPresenceMode=" .. tostring(GRPresenceMode)
+        .. " GRPresenceTrace=" .. tostring(GRPresenceTrace)
+        .. " GRShowLoginLogout=" .. tostring(GRShowLoginLogout)
+        )
         self:UnregisterEvent("PLAYER_LOGIN")
     end
 end)
@@ -117,9 +121,9 @@ GR_HELP_TEXT = {
 }
 
 ------------------------------------------------------------
--- Helper: centralized messaging
+-- Helper: centralized messaging (global so can be called at init)
 ------------------------------------------------------------
-local function PrintMsg(msg)
+function PrintMsg(msg)
     print("|cff00ff00GuildRouter:|r " .. msg)
 end
 
@@ -128,7 +132,7 @@ end
 ------------------------------------------------------------
 local function Trace(msg)
     if not GRPresenceTrace then return end
-    print(msg)
+    print("|cff00ff00GuildRouter:|r " .. msg)
 end
 
 ------------------------------------------------------------
@@ -341,22 +345,19 @@ local function MatchRosterChange(msg)
 end
 
 ------------------------------------------------------------
--- Helper: message groups assigned to the Guild tab
+-- Helper: find all message groups assigned to the Guild tab
 ------------------------------------------------------------
 local function GR_GetMessageGroups(frame)
     local groups = {}
     if not frame then return groups end
-    for _, group in ipairs({
-        "SYSTEM", "GUILD", "OFFICER", "GUILD_ACHIEVEMENT",
-        "SAY", "YELL", "WHISPER", "PARTY", "RAID",
-        "CHANNEL1", "CHANNEL2", "CHANNEL3", "CHANNEL4",
-    }) do
-        if ChatFrame_ContainsMessageGroup(frame, group) then
-            table.insert(groups, group)
+    for groupName, groupTable in pairs(ChatTypeGroup) do
+        if ChatFrame_ContainsMessageGroup(frame, groupName) then
+            table.insert(groups, groupName)
         end
     end
     return groups
 end
+
 local function GR_GetCacheInfo()
     local nameCount, classCount = 0, 0
     for _ in pairs(GR_NameCache or {}) do nameCount = nameCount + 1 end
@@ -439,10 +440,7 @@ function GR_BuildStatusLines()
         local groups = GR_GetMessageGroups(frame) or {}
         local friendlyList = {}
         for i = 1, #groups do
-            local friendly = FRIENDLY_SOURCES[groups[i]]
-            if friendly then
-                friendlyList[#friendlyList + 1] = friendly
-            end
+            friendlyList[#friendlyList + 1] = groups[i]
         end
         if #friendlyList > 0 then
             lines[#lines+1] = "ChatFrame active sources: " .. table.concat(friendlyList, ", ")
@@ -462,7 +460,7 @@ function GR_BuildStatusLines()
     lines[#lines+1] = "  show login/out = " .. tostring(GuildRouterDB and GuildRouterDB.showLoginLogout)
     lines[#lines+1] = "  presenceMode = " .. tostring(GuildRouterDB and GuildRouterDB.presenceMode)
     lines[#lines+1] = "  presencetrace = " .. tostring(GuildRouterDB and GuildRouterDB.presenceTrace)
-    lines[#lines+1] = "  cache refresh = " .. tostring(GuildRouterDB and GuildRouterDB.GR_CACHE_VALIDITY)
+    lines[#lines+1] = "  cache refresh = " .. tostring(GuildRouterDB and GuildRouterDB.cacheValidity)
     lines[#lines+1] = "SavedVariables:"
     lines[#lines+1] = "  show login/out = " .. tostring(GRShowLoginLogout)
     lines[#lines+1] = "  presenceMode = " .. tostring(GRPresenceMode)
@@ -836,7 +834,7 @@ SlashCmdList["GRLOGIN"] = function()
     GRShowLoginLogout = not GRShowLoginLogout
     GuildRouterDB.showLoginLogout = GRShowLoginLogout
     PrintMsg("Login/Logout messages: " .. (GRShowLoginLogout and "ON" or "OFF"))
-    print("DBG:slash /grlogin set GRShowLoginLogout="..tostring(GRShowLoginLogout))
+    PrintMsg("DBG:slash /grlogin set GRShowLoginLogout=" .. tostring(GRShowLoginLogout))
 end
 
 ------------------------------------------------------------

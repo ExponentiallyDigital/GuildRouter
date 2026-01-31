@@ -37,12 +37,7 @@ GuildRouterDB = {
     3. trace mode change - true/false
 =================
 
-if you set grpresence trace , how do you disable? it is a toggle
-what does it actually show?
-
 Bugs.
 1. guild member login/out messages are still going into General, if going to Guild should not go to General
-2. update docs:
-    Any changes take effect immediately but are only writen to the savedvairiables file on sucessful logout
-    screenshots
+2. add screenshots
 3. Publish to curseforge

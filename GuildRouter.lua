@@ -635,31 +635,32 @@ motdFrame:SetScript("OnEvent", function(_, _, msg)
 end)
 
 ------------------------------------------------------------
--- On login: initialize Guild tab and refresh cache
+-- On login: initialize Guild tab and request roster
 ------------------------------------------------------------
 local loginFrame = CreateFrame("Frame")
 loginFrame:RegisterEvent("PLAYER_LOGIN")
 loginFrame:SetScript("OnEvent", function()
     targetFrame = FindTargetFrame() or EnsureGuildTabExists()
-    -- Refresh cache once on login
+    -- Don't try to refresh cache immediately; the roster data isn't loaded yet
+    -- Instead, request the roster; GUILD_ROSTER_UPDATE will fire and populate the cache
     if IsInGuild() then
-        RefreshNameCache("PLAYER_LOGIN")
+        RequestRosterSafe()
     end
 end)
 
 -- Debounced roster update listener
 -- WoW fires GUILD_ROSTER_UPDATE many times per minute for various reasons,
--- so we only refresh if the cache is actually stale (5+ minutes old)
+-- so we only refresh if: (1) cache is empty (first load) or (2) cache is stale (5+ minutes old)
 local rosterFrame = CreateFrame("Frame")
 rosterFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
 rosterFrame:SetScript("OnEvent", function()
-    if IsInGuild() and next(nameClassCache) ~= nil then
-        -- Only refresh if cache is actually stale, don't just refresh every 5 seconds
-        if IsCacheStale() then
-            RefreshNameCache("GUILD_ROSTER_UPDATE (cache expired)")
-        else
-            Trace("[Cache] Ignoring GUILD_ROSTER_UPDATE (cache still fresh)")
-        end
+    if not IsInGuild() then return end
+    -- Always refresh if cache is empty (first login), otherwise only if stale
+    local cacheEmpty = next(nameClassCache) == nil
+    if cacheEmpty or IsCacheStale() then
+        RefreshNameCache(cacheEmpty and "GUILD_ROSTER_UPDATE (first load)" or "GUILD_ROSTER_UPDATE (cache expired)")
+    else
+        Trace("[Cache] Ignoring GUILD_ROSTER_UPDATE (cache still fresh)")
     end
 end)
 GR_Events["GUILD_ROSTER_UPDATE"] = true

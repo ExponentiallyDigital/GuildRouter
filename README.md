@@ -6,7 +6,7 @@ A lightweight, high-performance World of Warcraft addon that routes guild chat, 
 
 **TL;DR** - be better connected with your guild.
 
-Stop losing track of your guild's activity in a flood of trade chat, raid alerts, and world messages. **GuildRouter** intercepts system messages that usually vanish beneath the flood and organises them into a clean, readable stream.
+Stop losing track of your guild's activity in a flood of trade chat, raid alerts, and world messages. **GuildRouter** intercepts system messages that usually vanish beneath the flood and orgaises them into a clean, readable stream.
 
 While you can move standard guild chat to a new tab using default Blizzard settings, you lose the context of important events like achievements and roster changes. By default, these are mixed into your main chat frame where they rapidly get buried, especially on busy realms or during intense gaming.
 
@@ -35,53 +35,48 @@ This addon works out of the box. Upon loading, it will check for a chat tab name
 To declutter your chat, disable 'Guild Chat,' 'Officer Chat,' and 'Guild Announce' in your primary windows; these messages are now routed to the Guild tab.
 
 If you are using ElvUi, you may need to drag the ‘Guild’ tab once to your preferred position. After that, if you ever delete or need to reset the tab, you can use /grreset and it should retain the previous ordering sequence.
+You can modify four values that affect how the addon operates, these are configurable via the standard Blizzard addon UI under `<ESCAPE>->Options->Addons->GuildRouter`.
+
+- **Show login/logout messages**: `enable (default) | disable` display of login and logout messages in the Guild tab
+- **Show login/logout messages for**: `Guild-only (default) | off | all` which types of users' login/logout messages will be displayed. Selecting `all` enables anyone in your friends list to be announced to the Guild tab.
+- **Debug:enable presence trace**: `enable | disable (default)` turns on detailed diagnostic logging for presence‑related events (login, logout, cache checks, stale‑cache refreshes, throttling decisions, etc.). When enabled, GuildRouter prints internal routing decisions to the chat frame so you can see exactly why a message was shown, hidden, or refreshed.
+  This option is intended for troubleshooting or for users who want full visibility into how the addon processes presence events. It should normally remain disabled, as it produces a lot of output during busy periods.
+- **Cache Validity**: `5 mins | 15 mins | 30 mins | 1 hour (default) | 2 hours` controls how long GuildRouter considers its internal guild roster cache “fresh.” A longer validity period means fewer roster scans and lower overhead, which is ideal for normal gameplay, the default of one hour is perfect for most players.
+  If you’re actively managing the guild roster (promotions, demotions, invites, removals), you may want to choose a shorter interval so the addon refreshes its data more frequently and reflects changes sooner.
+
+Any changes take effect immediately but are only writen to the savedvariables file on sucessful logout
 
 ## Command Line Options
 
 GuildRouter provides several slash commands to manage the Guild tab, control presence announcements, and test events. None are required for normal operation.
 
-`/grhelp` Displays available GuildRouter commands.
-
-`/grpresence [mode]` Controls login/logout announcements. Modes: `guild-only` (default), `all`, `off`, or `trace` (debug).
-
-`/grstatus` Display addon status including memory use.
-
-`/grreset` Recreates the Guild tab with correct configuration and docking.
-
-`/grdelete` Deletes the Guild tab (no confirmation).
-
-`/grfix` Repairs the Guild tab's configuration and docking.
-
-`/grdock` Forces the Guild tab to dock.
-
-`/grtest [event]` Simulates guild events: `join`, `leave`, `promote`, `demote`, `note`, `ach`.
-
-`/grforceroster` Force guild roster acquisition.
-
-`/grnames` Display cached player→realm mappings.
-
-### SavedVariables
-
-GuildRouter stores presence settings in `GuildRouterDB`. The following values persist across sessions:
-
-`presenceMode` — `guild-only`, `all`, or `off`
-
-`presenceTrace` — `true` or `false`
-
-Defaults on first install:
-
-- presenceMode = "guild-only"
-- presenceTrace = false
-
-Don't edit the SavedVariables file, this is updated/read by the addon.
+- `/grhelp` displays available GuildRouter commands.
+- `/grstatus` display addon status including memory use.
+- `/grpresence [mode]` controls login/logout announcements. Modes: `guild-only` (default), `all`, `off`, or `trace` (debug).
+- `/grreset` recreates the Guild tab with correct configuration and docking.
+- `/grdelete` deletes the Guild tab **without** confirmation!
+- `/grfix` repairs the Guild tab's configuration and docking.
+- /grdock` forces the Guild tab to dock.
+- `/grtest ``<join | leave | promote | demote | note | ach` simulates guild events for testing purposes.
+- `/grforceroster` force guild roster acquisition/update.
+- `/grnames` display cached player→realm mappings.
 
 ## Technical details
 
 - **System messages:** intercepts, formats and routes guild and related `system` messages
+- **Cache system:** to ensure no impact to your gaming, GuildRouter caches your guild roster, details below
 - **Monotonic timing:** uses `GetTime()` instead of system clock to ensure anti-spam reliability during clock syncs or DST changes
 - **Pattern robustness:** uses `gsub` realm-stripping to ensure compatibility with hyphenated names on international realms
 - **Deterministic logic:** sequential pattern matching to ensure complex roster changes (like note updates) are captured with 100% accuracy
 - **Lookups:** caches the Guild roster for performance
+
+### Cache system
+
+GuildRouter uses a smart, event‑driven caching system to keep guild presence routing fast, accurate, and completely hitch‑free. Instead of hammering the roster API or rebuilding data every time Blizzard fires a GUILD_ROSTER_UPDATE (which can happen dozens of times per minute), the addon maintains a lightweight cache of guild member names, realms, and classes. This cache is refreshed only when it actually needs to be — on login, or when it becomes stale based on a user‑configurable validity period.
+
+When a presence message arrives (“X has come online”), GuildRouter resolves the player’s full name and class instantly from the cache, producing correct clickable links and accurate guild‑membership checks even when Blizzard sends short names or out‑of‑order events. If the cache is stale, the addon requests a roster update in the background, but only if enough time has passed since the last request. All refreshes are throttled and debounced to avoid UI lag, unnecessary work, or API spam.
+
+The result is a system that feels instantaneous and rock‑solid: presence messages are always correct, class colours are always accurate, and the addon never stutters or rebuilds more than necessary. It’s engineered to stay fast under heavy event storms, behave deterministically, and keep your chat clean without ever wasting CPU cycles.
 
 ## <a name='Contributing'></a>Contributing
 

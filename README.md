@@ -1,6 +1,6 @@
 # Guild router
 
-A "set and forget," high-performance, lightweight World of Warcraft addon that routes guild chat, joins/leaves, member achievements, and roster changes into a single, dedicated chat tab.
+A lightweight, high-performance World of Warcraft addon that routes guild chat, joins/leaves, member achievements, and roster changes into a single, dedicated chat tab.
 
 ## Why use this?
 

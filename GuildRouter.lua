@@ -11,9 +11,10 @@ local isElvUI = (ElvUI ~= nil)
 
 -- Throttle / debounce controls for roster refresh
 local GR_lastRefreshTime = 0
-local GR_REFRESH_DEBOUNCE = 5.0           -- minimum seconds between actual RefreshNameCache runs
+local GR_CACHE_VALIDITY = 300              -- cache is valid for 5 minutes
+local GR_REFRESH_DEBOUNCE = 5.0            -- minimum seconds between actual RefreshNameCache runs
 local GR_lastRefreshRequest = 0
-local GR_REFRESH_REQUEST_COOLDOWN = 10.0  -- minimum seconds between roster requests to the API
+local GR_REFRESH_REQUEST_COOLDOWN = 10.0   -- minimum seconds between roster requests to the API
 
 local _G                = _G
 local NUM_CHAT_WINDOWS  = NUM_CHAT_WINDOWS
@@ -103,7 +104,7 @@ local nameClassCache = {}
 ------------------------------------------------------------
 GR_HELP_TEXT = {
     "/grstatus - Show addon status",
-    "/grpresence <off|guild-only|all> - Set presence mode",
+    "/grpresence <off | guild-only | all> - Set presence mode",
     "/grpresence trace - Toggle presence trace",
     "/grforceroster - Force roster refresh",
     "/grreset - Recreate Guild tab",
@@ -513,10 +514,15 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             ------------------------------------------------------------
             -- Guild-only mode: ignore non-guild members (with on-demand refresh)
             ------------------------------------------------------------
-            -- Guild-only mode: check cache without requesting roster updates
-            -- Only use what we have in the cache; don't trigger RequestRosterSafe
-            -- on every login/logout. The cache is refreshed on actual roster changes.
+            -- Guild-only mode: check guild membership using cache
+            -- If not found and cache is stale, request a roster refresh (throttled)
+            -- but don't block - we'll use stale data rather than delaying the message
             local isGuild = IsGuildMember(fullName)
+            if not isGuild and IsCacheStale() then
+                RefreshCacheIfNeeded()
+                -- Re-check after potential refresh (might not complete immediately)
+                isGuild = IsGuildMember(fullName)
+            end
             if GRPresenceMode == "guild-only" and not isGuild then
                 return false
             end
@@ -574,18 +580,21 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD_ACHIEVEMENT", FilterGuildMessage
 GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] = true
 
 ------------------------------------------------------------
--- Refresh name cache when the roster updates (actual member changes)
--- Only refresh if cache exists to avoid excessive updates
+-- Check if cache needs refreshing (on-demand, not automatic)
+-- Returns true if cache is stale and a refresh is in progress
 ------------------------------------------------------------
-local rosterFrame = CreateFrame("Frame")
-rosterFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
-rosterFrame:SetScript("OnEvent", function()
-    -- Only refresh if we're in a guild and have initialized the cache
-    if IsInGuild() and next(nameClassCache) ~= nil then
-        RefreshNameCache()
-    end
-end)
-GR_Events["GUILD_ROSTER_UPDATE"] = true
+local function IsCacheStale()
+    local now = GetTime()
+    return (now - GR_lastRefreshTime) > GR_CACHE_VALIDITY
+end
+
+local function RefreshCacheIfNeeded()
+    if not IsInGuild() then return false end
+    if not IsCacheStale() then return false end
+    -- Cache is stale, request a roster refresh (throttled)
+    RequestRosterSafe()
+    return true
+end
 
 ------------------------------------------------------------
 -- Show the guild MOTD in the Guild tab
@@ -597,19 +606,32 @@ motdFrame:SetScript("OnEvent", function(_, _, msg)
 end)
 
 ------------------------------------------------------------
--- Load presence preference, defaults to guild only
--- if needed, auto-create Guild tab on login
+-- On login: initialize Guild tab and refresh cache
+-- Also listen for roster updates to refresh cache (debounced)
 ------------------------------------------------------------
-local initFrame = CreateFrame("Frame")
-initFrame:RegisterEvent("PLAYER_LOGIN")
-initFrame:SetScript("OnEvent", function()
-    -- Existing startup logic
+local loginFrame = CreateFrame("Frame")
+loginFrame:RegisterEvent("PLAYER_LOGIN")
+loginFrame:SetScript("OnEvent", function()
     targetFrame = FindTargetFrame() or EnsureGuildTabExists()
-    -- Refresh the name cache on login to populate it initially
+    -- Refresh cache once on login
     if IsInGuild() then
         RefreshNameCache()
     end
 end)
+
+-- Debounced roster update listener
+-- WoW fires GUILD_ROSTER_UPDATE multiple times per member change,
+-- so we debounce by just refreshing if we haven't recently
+local rosterFrame = CreateFrame("Frame")
+rosterFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
+rosterFrame:SetScript("OnEvent", function()
+    -- Simple debounce: only call RefreshNameCache if throttle allows it
+    -- The throttle inside RefreshNameCache prevents excessive execution
+    if IsInGuild() and next(nameClassCache) ~= nil then
+        RefreshNameCache()
+    end
+end)
+GR_Events["GUILD_ROSTER_UPDATE"] = true
 
 ------------------------------------------------------------
 -- /grreset — recreate the Guild tab

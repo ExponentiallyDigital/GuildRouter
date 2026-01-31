@@ -1,8 +1,8 @@
 ## Interface: 120000
 ## Title: GuildRouter
-## Notes: Sends guild system messages (MOTD, join, leave, achieve, roster changes) and guild & officer chat to the 'Guild' chat tab.
+## Notes: Routes guild events (MOTD, joins/leaves, achievements, roster changes), login/logout, and Guild & Officer chat to a 'Guild' tab.
 ## Author: ArcNineOhNine
-## Version: 0.3.011
+## Version: 0.3.012
 ## Category: ArcNineOhNIne
 ## SavedVariables: GuildRouterDB
 

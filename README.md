@@ -1,18 +1,18 @@
 # Guild router
 
-A lightweight, high-performance World of Warcraft addon that routes guild chat, joins/leaves, member achievements, and roster changes into a single, dedicated chat tab.
+A lightweight, high-performance World of Warcraft addon that routes guild events (MOTD, joins/leaves, achievements, roster changes), login/logout, and Guild & Officer chat into a single, dedicated 'Guild' tab.
 
 ## Why use this?
 
 **TL;DR** - be better connected with your guild.
 
-Stop losing track of your guild's activity in a flood of trade chat, raid alerts, and world messages. **GuildRouter** intercepts system messages that usually vanish beneath the flood and orgaises them into a clean, readable stream.
+Stop losing track of your guild's activity in a flood of trade chat, raid alerts, and world messages. **GuildRouter** intercepts system messages that usually vanish beneath the flood and organises them into a clean, readable stream.
 
 While you can move standard guild chat to a new tab using default Blizzard settings, you lose the context of important events like achievements and roster changes. By default, these are mixed into your main chat frame where they rapidly get buried, especially on busy realms or during intense gaming.
 
 ## Key features
 
-- **set and forget:** install as with any other addon but **no** configuration is required
+- **Set and forget:** install as with any other addon but **no** configuration is necessary
 - **Dedicated routing:** automatically creates and manages a "Guild" chat tab
 - **Intelligent class colouring:** all player names in join/leave, roster changes, and achievements are class-coloured
 - **Interactive links:** player names are fully clickable for whispering, inviting, or inspecting
@@ -28,14 +28,23 @@ While you can move standard guild chat to a new tab using default Blizzard setti
 1. Move/copy the `GuildRouter` folder to your `_retail_/Interface/AddOns/` or `_classic_/Interface/AddOns/` directory
 2. Restart World of Warcraft or logout and login
 
+On load/login:
+![Screenshot: GuildRouter UI](./initialisation.jpg)
+
+Types of updates:
+![Screenshot: GuildRouter UI](./updates.jpg)
+
 ## Configuration
 
-This addon works out of the box. Upon loading, it will check for a chat tab named **"Guild"**. If it doesn't find one, it will be created and populated with Guild, Officer, Guild announcement, and Blizzard system channels.
+The addon requires no setup. When it loads, it looks for a chat tab named **“Guild”**. If it doesn’t exist, GuildRouter creates it and assigns Guild, Officer, Guild Announcement, and Blizzard System channels, plus optional login/logout messages, giving you one clean, dedicated tab for all guild activity.
 
-To declutter your chat, disable 'Guild Chat,' 'Officer Chat,' and 'Guild Announce' in your primary windows; these messages are now routed to the Guild tab.
+To declutter your chat, disable **Guild Chat**, **Officer Chat**, and **Guild Announce** in your primary windows; these messages are now routed to the Guild tab.
 
-If you are using ElvUi, you may need to drag the ‘Guild’ tab once to your preferred position. After that, if you ever delete or need to reset the tab, you can use /grreset and it should retain the previous ordering sequence.
-You can modify four values that affect how the addon operates, these are configurable via the standard Blizzard addon UI under `<ESCAPE>->Options->Addons->GuildRouter`.
+If you are using ElvUI, you may need to drag the ‘Guild’ tab once to your preferred position. After that, if you ever delete or need to reset the tab, you can use `/grreset` and it should retain the previous ordering sequence.
+
+You can modify four values that affect how the addon operates. These are configurable via the standard Blizzard addon UI under `<ESCAPE>->Options->Addons->GuildRouter`.
+
+![Screenshot: GuildRouter UI](./addon_options.jpg)
 
 - **Show login/logout messages**: `enable (default) | disable` display of login and logout messages in the Guild tab
 - **Show login/logout messages for**: `Guild-only (default) | off | all` which types of users' login/logout messages will be displayed. Selecting `all` enables anyone in your friends list to be announced to the Guild tab.
@@ -44,7 +53,7 @@ You can modify four values that affect how the addon operates, these are configu
 - **Cache Validity**: `5 mins | 15 mins | 30 mins | 1 hour (default) | 2 hours` controls how long GuildRouter considers its internal guild roster cache “fresh.” A longer validity period means fewer roster scans and lower overhead, which is ideal for normal gameplay, the default of one hour is perfect for most players.
   If you’re actively managing the guild roster (promotions, demotions, invites, removals), you may want to choose a shorter interval so the addon refreshes its data more frequently and reflects changes sooner.
 
-Any changes take effect immediately but are only writen to the savedvariables file on sucessful logout
+Any changes take effect immediately but are only written to the savedvariables file on successful logout
 
 ## Command Line Options
 
@@ -56,10 +65,13 @@ GuildRouter provides several slash commands to manage the Guild tab, control pre
 - `/grreset` recreates the Guild tab with correct configuration and docking.
 - `/grdelete` deletes the Guild tab **without** confirmation!
 - `/grfix` repairs the Guild tab's configuration and docking.
-- /grdock` forces the Guild tab to dock.
-- `/grtest ``<join | leave | promote | demote | note | ach` simulates guild events for testing purposes.
+- `/grdock` forces the Guild tab to dock.
+- `/grtest join | leave | promote | demote | note | ach` simulates guild events for testing purposes.
 - `/grforceroster` force guild roster acquisition/update.
 - `/grnames` display cached player→realm mappings.
+
+Status screenshot:
+![Screenshot: GuildRouter UI](./status.jpg)
 
 ## Technical details
 
@@ -72,11 +84,11 @@ GuildRouter provides several slash commands to manage the Guild tab, control pre
 
 ### Cache system
 
-GuildRouter uses a smart, event‑driven caching system to keep guild presence routing fast, accurate, and completely hitch‑free. Instead of hammering the roster API or rebuilding data every time Blizzard fires a GUILD_ROSTER_UPDATE (which can happen dozens of times per minute), the addon maintains a lightweight cache of guild member names, realms, and classes. This cache is refreshed only when it actually needs to be — on login, or when it becomes stale based on a user‑configurable validity period.
+GuildRouter uses a smart, event‑driven caching system to keep guild presence routing fast and accurate. Instead of hammering the roster API or rebuilding data every time Blizzard fires a GUILD_ROSTER_UPDATE (which can happen dozens of times per minute), the addon maintains a lightweight cache of guild member names, realms, and classes. This cache is refreshed only when it actually needs to be, on login, or when it becomes stale based on a user‑configurable validity period.
 
 When a presence message arrives (“X has come online”), GuildRouter resolves the player’s full name and class instantly from the cache, producing correct clickable links and accurate guild‑membership checks even when Blizzard sends short names or out‑of‑order events. If the cache is stale, the addon requests a roster update in the background, but only if enough time has passed since the last request. All refreshes are throttled and debounced to avoid UI lag, unnecessary work, or API spam.
 
-The result is a system that feels instantaneous and rock‑solid: presence messages are always correct, class colours are always accurate, and the addon never stutters or rebuilds more than necessary. It’s engineered to stay fast under heavy event storms, behave deterministically, and keep your chat clean without ever wasting CPU cycles.
+The result is a system that is instantaneous and rock‑solid: presence messages are always correct, class colours are always accurate, and the addon never stutters or rebuilds more than necessary. It’s engineered to stay fast under heavy event storms, behave deterministically, and keep your chat clean without wasting CPU cycles or impacting your FPS.
 
 ## <a name='Contributing'></a>Contributing
 
@@ -85,7 +97,7 @@ Contributions to improve this tool are welcome! To contribute:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes to the source code or documentation
-4. Test with sample data and various input scenarios
+4. Test with sample data and various input scenarios, see `testcases.txt` as a starting point
 5. Submit a pull request with a clear description of the improvements
 
 Please ensure your changes maintain compatibility with existing variable formats and follows Lua best practices.

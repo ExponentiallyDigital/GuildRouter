@@ -14,29 +14,37 @@ GuildRouterDB = {
 ["presenceTrace"] = false,
 }
 
-2. slash command produce expected outputs
-    "/grstatus - Show addon status",
-    "/grstatus full - Show full status",
-    "/grpresence <off|guild-only|all> - Set presence mode",
-    "/grpresence trace - Toggle presence trace",
-    "/grforceroster - Force roster refresh",
-    "/grreset - Recreate Guild tab",
-    "/grfix - Repair message groups",
-    "/grdelete - Delete Guild tab",
-    "/grnames - Dump name cache",
-    "/grtest - Simulate events",
+2. slash command produce expected outputs, test each option
+    /grstatus - Show addon status
+    /grpresence <off|guild-only|all> - Set presence mode
+    /grpresence trace - Toggle presence trace
+    /grforceroster - Force roster refresh
+    /grreset - Recreate Guild tab
+    /grfix - Repair message groups
+    /grdelete - Delete Guild tab
+    /grnames - Dump name cache
+    /grtest - Simulate events <join, leave, promote, demote, note, ach>
 
-Options:
-Case,Show (Master),Presence Mode,Presence Trace,Expected Result
-1,on,all,true,Messages for everyone; Debug traces visible.
-2,on,all,false,Messages for everyone; No debug traces.
-3,on,guild-only,true,Messages for guild only; Debug traces visible.
-4,on,guild-only,false,Messages for guild only; No debug traces.
-5,on,off,true,No messages; Debug traces visible.
-6,on,off,false,No messages; No debug traces.
-7,off,all,true,No messages; Debug traces visible.
-8,off,all,false,No messages; No debug traces.
-9,off,guild-only,true,No messages; Debug traces visible.
-10,off,guild-only,false,No messages; No debug traces.
-11,off,off,true,No messages; Debug traces visible.
-12,off,off,false,No messages; No debug traces.
+3. check options set in UI/cmd line persist
+
+    show login/out
+    presenceMode    guild-only, all, off
+    presenceTrace   shows debug info
+
+    set each, are they still set correctly vis grstatus?
+    1. login/out - true/false
+    2. prsence mode change - guild-only, all, off
+    3. trace mode change - true/false
+=================
+
+if you set grpresence trace , how do you disable? it is a toggle
+what does it actually show?
+
+Bugs.
+1. /grstatus not iterating through ALL subscribed channel in that chat frame
+2. UI get rid of box for current status, get rid of sliders for help box
+3. trace on only ever shows
+    [cache] 773 members refreshed
+    seems to show cache upadfted too often - 1 person comes online, shows msg 4x
+    is it updated once per msg in chat?? no?
+4. if deletye svared variables and reload, gets an error, if exit/restart no error

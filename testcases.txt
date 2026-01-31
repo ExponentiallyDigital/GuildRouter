@@ -1,0 +1,42 @@
+1. No savedvariables file (first run):
+delete any existing saved variables file
+login
+/run print("DB:", tostring(GuildRouterDB and GuildRouterDB.showLoginLogout), tostring(GuildRouterDB and GuildRouterDB.presenceMode), tostring(GuildRouterDB and GuildRouterDB.presenceTrace))
+/run print("Globals:", tostring(GRShowLoginLogout), tostring(GRPresenceMode), tostring(GRPresenceTrace))
+this output should be created
+ DB: true guild-only
+ Globals: true guild-only false
+logout, file should be created as:
+
+GuildRouterDB = {
+["presenceMode"] = "guild-only",
+["showLoginLogout"] = true,
+["presenceTrace"] = false,
+}
+
+2. slash command produce expected outputs
+    "/grstatus - Show addon status",
+    "/grstatus full - Show full status",
+    "/grpresence <off|guild-only|all> - Set presence mode",
+    "/grpresence trace - Toggle presence trace",
+    "/grforceroster - Force roster refresh",
+    "/grreset - Recreate Guild tab",
+    "/grfix - Repair message groups",
+    "/grdelete - Delete Guild tab",
+    "/grnames - Dump name cache",
+    "/grtest - Simulate events",
+
+Options:
+Case,Show (Master),Presence Mode,Presence Trace,Expected Result
+1,on,all,true,Messages for everyone; Debug traces visible.
+2,on,all,false,Messages for everyone; No debug traces.
+3,on,guild-only,true,Messages for guild only; Debug traces visible.
+4,on,guild-only,false,Messages for guild only; No debug traces.
+5,on,off,true,No messages; Debug traces visible.
+6,on,off,false,No messages; No debug traces.
+7,off,all,true,No messages; Debug traces visible.
+8,off,all,false,No messages; No debug traces.
+9,off,guild-only,true,No messages; Debug traces visible.
+10,off,guild-only,false,No messages; No debug traces.
+11,off,off,true,No messages; Debug traces visible.
+12,off,off,false,No messages; No debug traces.

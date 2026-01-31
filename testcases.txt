@@ -38,6 +38,8 @@ GuildRouterDB = {
 =================
 
 Bugs.
-1. guild member login/out messages are still going into General, if going to Guild should not go to General
-2. add screenshots
+1. are guild member login/out messages still going into General as well as Guild?
+2. if someone uses elvui their logon/off gets routed to General as well as Guild?
+quieten logon:
+ GuildRouter: DBG:init assigned GRPresenceMode=guild-only GRPresenceTrace=false GRShowLoginLogout=true 
 3. Publish to curseforge

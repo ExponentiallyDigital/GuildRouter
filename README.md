@@ -1,4 +1,4 @@
-# Guild router
+# Guild Router
 
 A lightweight, high-performance World of Warcraft addon that routes guild events (MOTD, joins/leaves, achievements, roster changes), login/logout, and Guild & Officer chat into a single, dedicated 'Guild' tab.
 

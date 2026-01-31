@@ -39,6 +39,7 @@ local wipe              = wipe
 local PLAYER_REALM      = GetRealmName()
 GR_Events               = {}
 GR_NameCache = GR_NameCache or {}           -- Name → realm cache (for presence, offline/online, etc.)
+local GR_statusLines = {}
 local FRIENDLY_SOURCES = {
     SYSTEM  = "System",
     GUILD   = "Guild Chat",
@@ -425,7 +426,8 @@ end
 -- Generate status information, used in command line output and addon UI
 ------------------------------------------------------------
 function GR_BuildStatusLines()
-    local lines = {}
+    wipe(GR_statusLines)
+    local lines = GR_statusLines
     -- Version
     local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or (GetAddOnMetadata and GetAddOnMetadata)
     local version = meta and meta("GuildRouter", "Version") or "unknown"

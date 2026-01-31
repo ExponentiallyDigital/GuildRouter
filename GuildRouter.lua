@@ -234,13 +234,14 @@ end
 -- Refresh name -> class cache from the guild roster
 -- Ensures both short name and fullName keys are stored.
 ------------------------------------------------------------
-local function RefreshNameCache()
+local function RefreshNameCache(reason)
     if not IsInGuild() then return end
     local now = GetTime()
     if (now - GR_lastRefreshTime) < GR_REFRESH_DEBOUNCE then
+        Trace("[Cache] Throttled (reason: " .. (reason or "unknown") .. ")")
         return
     end
-    GR_lastRefreshTime = now
+    GR_lastRefreshTime = now  -- Reset the validity timer
     -- Wiping both ensures we don't have "ghost" members in our cache
     wipe(nameClassCache)
     wipe(GR_NameCache) 
@@ -259,7 +260,7 @@ local function RefreshNameCache()
             GR_NameCache[shortName] = realm 
         end
     end
-    Trace("[Cache] " .. num .. " members refreshed")
+    Trace("[Cache] " .. num .. " members refreshed (reason: " .. (reason or "unknown") .. ")")
 end
 
 ------------------------------------------------------------
@@ -519,7 +520,7 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             -- but don't block - we'll use stale data rather than delaying the message
             local isGuild = IsGuildMember(fullName)
             if not isGuild and IsCacheStale() then
-                RefreshCacheIfNeeded()
+                RefreshCacheIfNeeded("presence check (" .. fullName .. " not in cache)")
                 -- Re-check after potential refresh (might not complete immediately)
                 isGuild = IsGuildMember(fullName)
             end
@@ -581,16 +582,19 @@ GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] = true
 
 ------------------------------------------------------------
 -- Check if cache needs refreshing (on-demand, not automatic)
--- Returns true if cache is stale and a refresh is in progress
 ------------------------------------------------------------
 local function IsCacheStale()
     local now = GetTime()
     return (now - GR_lastRefreshTime) > GR_CACHE_VALIDITY
 end
 
-local function RefreshCacheIfNeeded()
+local function RefreshCacheIfNeeded(reason)
     if not IsInGuild() then return false end
-    if not IsCacheStale() then return false end
+    if not IsCacheStale() then 
+        Trace("[Cache] Skipped (cache still fresh, reason requested: " .. (reason or "unknown") .. ")")
+        return false 
+    end
+    Trace("[Cache] Cache is stale, requesting roster refresh (reason: " .. (reason or "unknown") .. ")")
     -- Cache is stale, request a roster refresh (throttled)
     RequestRosterSafe()
     return true
@@ -607,7 +611,6 @@ end)
 
 ------------------------------------------------------------
 -- On login: initialize Guild tab and refresh cache
--- Also listen for roster updates to refresh cache (debounced)
 ------------------------------------------------------------
 local loginFrame = CreateFrame("Frame")
 loginFrame:RegisterEvent("PLAYER_LOGIN")
@@ -615,20 +618,23 @@ loginFrame:SetScript("OnEvent", function()
     targetFrame = FindTargetFrame() or EnsureGuildTabExists()
     -- Refresh cache once on login
     if IsInGuild() then
-        RefreshNameCache()
+        RefreshNameCache("PLAYER_LOGIN")
     end
 end)
 
 -- Debounced roster update listener
--- WoW fires GUILD_ROSTER_UPDATE multiple times per member change,
--- so we debounce by just refreshing if we haven't recently
+-- WoW fires GUILD_ROSTER_UPDATE many times per minute for various reasons,
+-- so we only refresh if the cache is actually stale (5+ minutes old)
 local rosterFrame = CreateFrame("Frame")
 rosterFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
 rosterFrame:SetScript("OnEvent", function()
-    -- Simple debounce: only call RefreshNameCache if throttle allows it
-    -- The throttle inside RefreshNameCache prevents excessive execution
     if IsInGuild() and next(nameClassCache) ~= nil then
-        RefreshNameCache()
+        -- Only refresh if cache is actually stale, don't just refresh every 5 seconds
+        if IsCacheStale() then
+            RefreshNameCache("GUILD_ROSTER_UPDATE (cache expired)")
+        else
+            Trace("[Cache] Ignoring GUILD_ROSTER_UPDATE (cache still fresh)")
+        end
     end
 end)
 GR_Events["GUILD_ROSTER_UPDATE"] = true

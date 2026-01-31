@@ -103,7 +103,6 @@ local nameClassCache = {}
 ------------------------------------------------------------
 GR_HELP_TEXT = {
     "/grstatus - Show addon status",
-    "/grstatus full - Show full status",
     "/grpresence <off|guild-only|all> - Set presence mode",
     "/grpresence trace - Toggle presence trace",
     "/grforceroster - Force roster refresh",
@@ -419,9 +418,9 @@ function GR_BuildStatusLines()
             end
         end
         if #friendlyList > 0 then
-            lines[#lines+1] = "Chat frame active sources: " .. table.concat(friendlyList, ", ")
+            lines[#lines+1] = "ChatFrame active sources: " .. table.concat(friendlyList, ", ")
         else
-            lines[#lines+1] = "Chat frame active sources: none"
+            lines[#lines+1] = "ChatFrame active sources: none!"
         end
     else
         lines[#lines+1] = "Tab: NOT FOUND"
@@ -447,7 +446,6 @@ function GR_BuildStatusLines()
     lines[#lines+1] = string.format("Memory: %.1f KB", mem)
     return lines
 end
-
 
 ------------------------------------------------------------
 -- Core filter: reroute and reformat guild-related messages
@@ -515,13 +513,10 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             ------------------------------------------------------------
             -- Guild-only mode: ignore non-guild members (with on-demand refresh)
             ------------------------------------------------------------
-            -- Try a direct lookup first
+            -- Guild-only mode: check cache without requesting roster updates
+            -- Only use what we have in the cache; don't trigger RequestRosterSafe
+            -- on every login/logout. The cache is refreshed on actual roster changes.
             local isGuild = IsGuildMember(fullName)
-            -- If not found, request a roster refresh (throttled) and try a single re-check
-            if not isGuild then
-                RequestRosterSafe()
-                isGuild = IsGuildMember(fullName)
-            end
             if GRPresenceMode == "guild-only" and not isGuild then
                 return false
             end
@@ -579,11 +574,17 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD_ACHIEVEMENT", FilterGuildMessage
 GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] = true
 
 ------------------------------------------------------------
--- Refresh name cache when the roster updates
+-- Refresh name cache when the roster updates (actual member changes)
+-- Only refresh if cache exists to avoid excessive updates
 ------------------------------------------------------------
 local rosterFrame = CreateFrame("Frame")
 rosterFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
-rosterFrame:SetScript("OnEvent", RefreshNameCache)
+rosterFrame:SetScript("OnEvent", function()
+    -- Only refresh if we're in a guild and have initialized the cache
+    if IsInGuild() and next(nameClassCache) ~= nil then
+        RefreshNameCache()
+    end
+end)
 GR_Events["GUILD_ROSTER_UPDATE"] = true
 
 ------------------------------------------------------------
@@ -604,9 +605,9 @@ initFrame:RegisterEvent("PLAYER_LOGIN")
 initFrame:SetScript("OnEvent", function()
     -- Existing startup logic
     targetFrame = FindTargetFrame() or EnsureGuildTabExists()
-    -- Request a fresh guild roster; RefreshNameCache will run on GUILD_ROSTER_UPDATE
+    -- Refresh the name cache on login to populate it initially
     if IsInGuild() then
-        RequestRosterSafe()
+        RefreshNameCache()
     end
 end)
 
@@ -662,6 +663,10 @@ SlashCmdList["GRFIX"] = function()
     local frame = FindTargetFrame() or EnsureGuildTabExists()
     ConfigureGuildTab(frame)
     SafeDock(frame)
+    -- Return focus to the General tab (ChatFrame1)
+    if _G["ChatFrame1"] then
+        FCF_SelectDockFrame(_G["ChatFrame1"])
+    end
     PrintMsg("Guild tab sources repaired.")
 end
 
@@ -680,12 +685,13 @@ SlashCmdList["GRTEST"] = function(arg)
     }
     if tests[arg] then
         FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", tests[arg])
-        PrintMsg("Test: " .. arg " (see Guild tab)")
+        PrintMsg("Test: " .. arg .." (see Guild tab)")
     elseif arg == "ach" then
+        local achID = 62110
+        local achLink = GetAchievementLink(achID)
         FilterGuildMessages(nil, "CHAT_MSG_GUILD_ACHIEVEMENT",
-            "%s has earned the achievement %s!", "Turalyon-Ner'zhul",
-            "|cffffff00|Hachievement:6:Player-1234-00000000:1:1:1:1:4294967295:4294967295:4294967295:4294967295|h[Level 10]|h|r")
-        PrintMsg("Test: ach (see Guild tab)")
+            "%s has earned the achievement %s!", "Turalyon-Ner'zhul", achLink)
+        PrintMsg("Test: achievement (see Guild tab)")
     else
         PrintMsg("Tests: join, leave, promote, demote, note, ach")
     end
@@ -709,8 +715,7 @@ SlashCmdList["GRPRESENCE"] = function(arg)
         PrintMsg("Trace: " .. (GRPresenceTrace and "ON" or "OFF"))
         return
     end
-    PrintMsg("Presence: guild-only (default), all, off, trace")
-    print("DBG:slash /grpresence set GRPresenceMode="..tostring(GRPresenceMode).." GRPresenceTrace="..tostring(GRPresenceTrace))
+    PrintMsg("/gpresence: guild-only (default), all, off, trace")
 end
 
 ------------------------------------------------------------

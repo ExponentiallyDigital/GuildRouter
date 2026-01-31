@@ -2,9 +2,10 @@
 ## Title: GuildRouter
 ## Notes: Sends guild system messages (MOTD, join, leave, achieve, roster changes) to the 'Guild' chat tab plus Guild & officer chat.
 ## Author: ArcNineOhNine
-## Version: 0.2.004
+## Version: 0.3.001
 ## SavedVariables:
 ## Category: ArcNineOhNIne
 ## SavedVariables: GuildRouterDB
 
 GuildRouter.lua
+GuildRouter_options.lua

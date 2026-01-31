@@ -36,8 +36,8 @@ local find              = string.find
 local gsub              = string.gsub
 local wipe              = wipe
 local PLAYER_REALM      = GetRealmName()
-GR_Events = {}
-
+GR_Events               = {}
+GR_NameCache = GR_NameCache or {}           -- Name → realm cache (for presence, offline/online, etc.)
 local FRIENDLY_SOURCES = {
     SYSTEM  = "System",
     GUILD   = "Guild Chat",
@@ -45,21 +45,11 @@ local FRIENDLY_SOURCES = {
 }
 
 ------------------------------------------------------------
--- Presence announcement settings from SavedVariables on login
+-- Defaults, restored from savedvariables
 ------------------------------------------------------------
-local GRPresenceMode
-local GRPresenceTrace
-
-------------------------------------------------------------
--- Helper: centralized messaging
-------------------------------------------------------------
-local function PrintMsg(msg)
-    print("|cff00ff00GuildRouter:|r " .. msg)
-end
-local function Trace(msg)
-    if not GRPresenceTrace then return end
-    print(msg)
-end
+local GRPresenceMode    = "guild-only"
+local GRPresenceTrace   = false
+local GRShowLoginLogout = true
 
 ------------------------------------------------------------
 -- State
@@ -70,9 +60,35 @@ local lastJoinLeaveTime    = 0
 local nameClassCache = {}
 
 ------------------------------------------------------------
--- Name → realm cache (for presence, offline/online, etc.)
+-- /grhelp contents
 ------------------------------------------------------------
-GR_NameCache = GR_NameCache or {}
+GR_HELP_TEXT = {
+    "/grstatus - Show addon status",
+    "/grstatus full - Show full status",
+    "/grpresence <off|guild-only|all> - Set presence mode",
+    "/grpresence trace - Toggle presence trace",
+    "/grforceroster - Force roster refresh",
+    "/grreset - Recreate Guild tab",
+    "/grfix - Repair message groups",
+    "/grdelete - Delete Guild tab",
+    "/grnames - Dump name cache",
+    "/grtest - Simulate events",
+}
+
+------------------------------------------------------------
+-- Helper: centralized messaging
+------------------------------------------------------------
+local function PrintMsg(msg)
+    print("|cff00ff00GuildRouter:|r " .. msg)
+end
+
+------------------------------------------------------------
+-- Helper: toggle for presence tracing
+------------------------------------------------------------
+local function Trace(msg)
+    if not GRPresenceTrace then return end
+    print(msg)
+end
 
 ------------------------------------------------------------
 -- Normalize a full name into name + realm
@@ -358,7 +374,13 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
         local name = nameOnline or nameOffline
         if name then
             ------------------------------------------------------------
-            -- Resolve short names (e.g., "Leeroy") to full names
+            -- Display/hide login/logout messages
+            ------------------------------------------------------------
+            if not GRShowLoginLogout then
+                return false
+            end
+            ------------------------------------------------------------
+            -- Resolve short names (e.g., "Leeroy") to name + realm
             ------------------------------------------------------------
             local fullName = GR_ResolveName(name)
             ------------------------------------------------------------
@@ -442,7 +464,7 @@ rosterFrame:SetScript("OnEvent", RefreshNameCache)
 GR_Events["GUILD_ROSTER_UPDATE"] = true
 
 ------------------------------------------------------------
--- Show the real guild MOTD in the Guild tab
+-- Show the guild MOTD in the Guild tab
 ------------------------------------------------------------
 local motdFrame = CreateFrame("Frame")
 motdFrame:RegisterEvent("GUILD_MOTD")
@@ -457,9 +479,7 @@ end)
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("PLAYER_LOGIN")
 initFrame:SetScript("OnEvent", function()
-    ------------------------------------------------------------
-    -- Load SavedVariables (create table if missing)
-    ------------------------------------------------------------
+    -- Load SavedVariables and create if needed
     GuildRouterDB = GuildRouterDB or {}
     -- Default presence mode: guild-only
     if GuildRouterDB.presenceMode == nil then
@@ -469,9 +489,14 @@ initFrame:SetScript("OnEvent", function()
     if GuildRouterDB.presenceTrace == nil then
         GuildRouterDB.presenceTrace = false
     end
+    --- Default login/out msg visibility: on
+    if GuildRouterDB.showLoginLogout == nil then
+        GuildRouterDB.showLoginLogout = true
+    end
     -- Apply to runtime
     GRPresenceMode  = GuildRouterDB.presenceMode
     GRPresenceTrace = GuildRouterDB.presenceTrace
+    GRShowLoginLogout = GuildRouterDB.showLoginLogout
     -- Existing startup logic
     targetFrame = FindTargetFrame() or EnsureGuildTabExists()
     -- Request a fresh guild roster; RefreshNameCache will run on GUILD_ROSTER_UPDATE
@@ -646,19 +671,21 @@ local function GR_GetGuildTabInfo()
 end
 
 ------------------------------------------------------------
--- /grstatus — show diagnostic info (Optimized)
+-- Generate status information, used in command line output and addon UI
 ------------------------------------------------------------
-SLASH_GRSTATUS1 = "/grstatus"
-SlashCmdList["GRSTATUS"] = function(msg)
-    local full = msg and msg:lower():match("full")
-    PrintMsg("Status")
+function GR_BuildStatusLines()
+    local lines = {}
+    -- Version
     local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or (GetAddOnMetadata and GetAddOnMetadata)
     local version = meta and meta("GuildRouter", "Version") or "unknown"
-    print("Version: " .. version)
-    print("UI: " .. (isElvUI and "ElvUI" or "Blizzard"))
+    lines[#lines+1] = "Version: " .. version
+    -- UI
+    lines[#lines+1] = "UI: " .. (isElvUI and "ElvUI" or "Blizzard")
+    -- Guild Tab
     local index, frame, docked = GR_GetGuildTabInfo()
     if index then
-        print("Tab: ChatFrame " .. index .. (docked and " (docked)" or ""))
+        lines[#lines+1] = "Tab: ChatFrame " .. index .. (docked and " (docked)" or "")
+
         local groups = GR_GetMessageGroups(frame) or {}
         local friendlyList = {}
         for i = 1, #groups do
@@ -668,25 +695,44 @@ SlashCmdList["GRSTATUS"] = function(msg)
             end
         end
         if #friendlyList > 0 then
-            print("  Active sources: " .. table.concat(friendlyList, ", "))
+            lines[#lines+1] = "  Active sources: " .. table.concat(friendlyList, ", ")
         else
-            print("  Active sources: none")
+            lines[#lines+1] = "  Active sources: none"
         end
     else
-        print("Tab: NOT FOUND")
+        lines[#lines+1] = "Tab: NOT FOUND"
     end
+    -- Cache info
     local nCache, cCache = GR_GetCacheInfo()
-    print("Caches: names=" .. nCache .. ", class=" .. cCache)
+    lines[#lines+1] = "Caches: names=" .. nCache .. ", class=" .. cCache
+    -- Event status
     local evSys, evAch, evRos = GR_GetEventStatus()
-    print("Events: sys=" .. evSys .. ", ach=" .. evAch .. ", roster=" .. evRos)
-    print("Presence mode: " .. tostring(GRPresenceMode))
-    print("Trace mode: " .. tostring(GRPresenceTrace))
-    print("SavedVariables:")
-    print("  presenceMode = " .. tostring(GRPresenceMode))
-    print("  presenceTrace = " .. tostring(GRPresenceTrace))
+    lines[#lines+1] = "Events: sys=" .. evSys .. ", ach=" .. evAch .. ", roster=" .. evRos
+    -- Presence settings
+    lines[#lines+1] = "Presence mode: " .. tostring(GRPresenceMode)
+    lines[#lines+1] = "Trace mode: " .. tostring(GRPresenceTrace)
+    -- SavedVariables
+    lines[#lines+1] = "SavedVariables:"
+    lines[#lines+1] = "  presenceMode = " .. tostring(GRPresenceMode)
+    lines[#lines+1] = "  presenceTrace = " .. tostring(GRPresenceTrace)
+    -- Memory usage
     collectgarbage("collect")
     UpdateAddOnMemoryUsage()
-    print(string.format("Memory: %.1f KB", GetAddOnMemoryUsage("GuildRouter")))
+    local mem = GetAddOnMemoryUsage("GuildRouter")
+    lines[#lines+1] = string.format("Memory: %.1f KB", mem)
+    return lines
+end
+
+------------------------------------------------------------
+-- /grstatus — show diagnostic info
+------------------------------------------------------------
+SLASH_GRSTATUS1 = "/grstatus"
+SlashCmdList["GRSTATUS"] = function(msg)
+    PrintMsg("Status")
+    local lines = GR_BuildStatusLines()
+    for i = 1, #lines do
+        print(lines[i])
+    end
 end
 
 ------------------------------------------------------------
@@ -699,17 +745,23 @@ SlashCmdList["GRFORCERO"] = function()
 end
 
 ------------------------------------------------------------
+-- /grlogin — show/hide login messages
+------------------------------------------------------------
+SLASH_GRLOGIN1 = "/grlogin"
+SlashCmdList["GRLOGIN"] = function()
+    GRShowLoginLogout = not GRShowLoginLogout
+    GuildRouterDB.showLoginLogout = GRShowLoginLogout
+    PrintMsg("Login/Logout messages: " .. (GRShowLoginLogout and "ON" or "OFF"))
+end
+
+------------------------------------------------------------
 -- /grhelp — show commands
 ------------------------------------------------------------
 SLASH_GRHELP1 = "/grhelp"
 SlashCmdList["GRHELP"] = function()
+    PrintMsg("Help")
     print("|cff00ff00GuildRouter by ArcNineOhNine, commands:|r")
-    print(" /grstatus   - display status info")
-    print(" /grpresence - set & save login/out announcements (def=guild-only, all, off, trace)")
-    print(" /grdock     - dock the Guild tab if not visible")
-    print(" /grreset    - recreate the Guild tab")
-    print(" /grfix      - repair Guild tab message groups and dock the tab")
-    print(" /grdelete   - permanently delete the Guild tab")
-    print(" /grtest     - simulate guild events (join, leave, promote, demote, note, ach)")
-    print(" /grhelp     - show this command list")
+    for _, line in ipairs(GR_HELP_TEXT) do
+        print(line)
+    end
 end

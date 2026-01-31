@@ -11,7 +11,7 @@ local isElvUI = (ElvUI ~= nil)
 
 -- Throttle / debounce controls for roster refresh
 local GR_lastRefreshTime = 0
-local GR_CACHE_VALIDITY = 300              -- cache is valid for 5 minutes
+local GR_CACHE_VALIDITY = 3600             -- cache is valid for 1 hour by default (overridden by SavedVariables)
 local GR_REFRESH_DEBOUNCE = 5.0            -- minimum seconds between actual RefreshNameCache runs
 local GR_lastRefreshRequest = 0
 local GR_REFRESH_REQUEST_COOLDOWN = 10.0   -- minimum seconds between roster requests to the API
@@ -61,33 +61,35 @@ if GRPresenceMode == nil then GRPresenceMode = GuildRouterDB.presenceMode end
 -- set up
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("ADDON_LOADED")
-initFrame:SetScript("OnEvent", function(self, event, addon)
-  if addon ~= "GuildRouter" then return end
-  if not GuildRouterDB then GuildRouterDB = {} end
-  if GuildRouterDB.showLoginLogout == nil then GuildRouterDB.showLoginLogout = true end
-  GRShowLoginLogout = GuildRouterDB.showLoginLogout
-  if GuildRouterDB.presenceTrace == nil then GuildRouterDB.presenceTrace = false end
-  GRPresenceTrace = GuildRouterDB.presenceTrace
-  if GuildRouterDB.presenceMode == nil then GuildRouterDB.presenceMode = "guild-only" end
-  GRPresenceMode = GuildRouterDB.presenceMode
-
-  -- Defer UI-dependent setup until PLAYER_LOGIN
-  self:RegisterEvent("PLAYER_LOGIN")
-  self:UnregisterEvent("ADDON_LOADED")
-end)
-
-initFrame:SetScript("OnEvent", function(self, event, ...)
-  if event == "PLAYER_LOGIN" then
-    -- safe to call UI helpers now
-    if type(FindTargetFrame) == "function" then
-      targetFrame = FindTargetFrame()
-    elseif type(EnsureGuildTabExists) == "function" then
-      targetFrame = EnsureGuildTabExists()
+initFrame:SetScript("OnEvent", function(self, event, addon, ...)
+    if event == "ADDON_LOADED" then
+        if addon ~= "GuildRouter" then return end
+        if not GuildRouterDB then GuildRouterDB = {} end
+        if GuildRouterDB.showLoginLogout == nil then GuildRouterDB.showLoginLogout = true end
+        GRShowLoginLogout = GuildRouterDB.showLoginLogout
+        if GuildRouterDB.presenceTrace == nil then GuildRouterDB.presenceTrace = false end
+        GRPresenceTrace = GuildRouterDB.presenceTrace
+        if GuildRouterDB.presenceMode == nil then GuildRouterDB.presenceMode = "guild-only" end
+        GRPresenceMode = GuildRouterDB.presenceMode
+        -- Allow the user to configure cache validity from UI; saved default takes precedence
+        GR_CACHE_VALIDITY = GuildRouterDB.cacheValidity or GR_CACHE_VALIDITY
+        -- Defer UI-dependent setup until PLAYER_LOGIN
+        self:RegisterEvent("PLAYER_LOGIN")
+        self:UnregisterEvent("ADDON_LOADED")
+        return
     end
-    -- debugging
-    print("DBG:init assigned GRPresenceMode="..tostring(GRPresenceMode).." GRPresenceTrace="..tostring(GRPresenceTrace).." GRShowLoginLogout="..tostring(GRShowLoginLogout))
-    self:UnregisterEvent("PLAYER_LOGIN")
-  end
+
+    if event == "PLAYER_LOGIN" then
+        -- safe to call UI helpers now
+        if type(FindTargetFrame) == "function" then
+            targetFrame = FindTargetFrame()
+        elseif type(EnsureGuildTabExists) == "function" then
+            targetFrame = EnsureGuildTabExists()
+        end
+        -- debugging
+        print("DBG:init assigned GRPresenceMode="..tostring(GRPresenceMode).." GRPresenceTrace="..tostring(GRPresenceTrace).." GRShowLoginLogout="..tostring(GRShowLoginLogout))
+        self:UnregisterEvent("PLAYER_LOGIN")
+    end
 end)
 
 
@@ -260,6 +262,8 @@ local function RefreshNameCache(reason)
             GR_NameCache[shortName] = realm 
         end
     end
+    -- Update the last refresh time so cache validity is measured from here
+    GR_lastRefreshTime = GetTime()
     Trace("[Cache] " .. num .. " members refreshed (reason: " .. (reason or "unknown") .. ")")
 end
 
@@ -359,11 +363,32 @@ local function GR_GetCacheInfo()
     for _ in pairs(nameClassCache or {}) do classCount = classCount + 1 end
     return nameCount, classCount -- Returns numbers directly
 end
+
 local function GR_GetEventStatus()
     local sys = GR_Events["CHAT_MSG_SYSTEM"] and "yes" or "no"
     local ach = GR_Events["CHAT_MSG_GUILD_ACHIEVEMENT"] and "yes" or "no"
     local roster = GR_Events["GUILD_ROSTER_UPDATE"] and "yes" or "no"
     return sys, ach, roster -- Returns three strings
+end
+
+------------------------------------------------------------
+-- Check if cache needs refreshing (on-demand, not automatic)
+------------------------------------------------------------
+local function IsCacheStale()
+    local now = GetTime()
+    return (now - GR_lastRefreshTime) > GR_CACHE_VALIDITY
+end
+
+local function RefreshCacheIfNeeded(reason)
+    if not IsInGuild() then return false end
+    if not IsCacheStale() then 
+        Trace("[Cache] Skipped (cache still fresh, reason requested: " .. (reason or "unknown") .. ")")
+        return false 
+    end
+    Trace("[Cache] Cache is stale, requesting roster refresh (reason: " .. (reason or "unknown") .. ")")
+    -- Cache is stale, request a roster refresh (throttled)
+    RequestRosterSafe()
+    return true
 end
 
 ------------------------------------------------------------
@@ -437,10 +462,12 @@ function GR_BuildStatusLines()
     lines[#lines+1] = "  show login/out = " .. tostring(GuildRouterDB and GuildRouterDB.showLoginLogout)
     lines[#lines+1] = "  presenceMode = " .. tostring(GuildRouterDB and GuildRouterDB.presenceMode)
     lines[#lines+1] = "  presencetrace = " .. tostring(GuildRouterDB and GuildRouterDB.presenceTrace)
+    lines[#lines+1] = "  cache refresh = " .. tostring(GuildRouterDB and GuildRouterDB.GR_CACHE_VALIDITY)
     lines[#lines+1] = "SavedVariables:"
     lines[#lines+1] = "  show login/out = " .. tostring(GRShowLoginLogout)
     lines[#lines+1] = "  presenceMode = " .. tostring(GRPresenceMode)
     lines[#lines+1] = "  presencetrace = " .. tostring(GRPresenceTrace)
+    lines[#lines+1] = "  cache refresh = " .. tostring(GR_CACHE_VALIDITY)
     -- Memory usage
     collectgarbage("collect")
     UpdateAddOnMemoryUsage()

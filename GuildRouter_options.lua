@@ -75,27 +75,19 @@ f:SetScript("OnEvent", function(self, event, addon)
         label:SetPoint("TOPLEFT", x, y)
         label:SetText(labelText)
 
-        -- ScrollFrame
-        local scrollFrame = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
-        scrollFrame:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -5)
-        scrollFrame:SetSize(500, height)
+        -- Use a simple non-scrollable text block (no scrollbar)
+        local frame = CreateFrame("Frame", nil, parent)
+        frame:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -5)
+        frame:SetSize(500, height)
 
-        -- Container frame (REQUIRED)
-        local container = CreateFrame("Frame", nil, scrollFrame)
-        container:SetSize(480, height)
-
-        -- Text inside container
-        local content = container:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        local content = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         content:SetPoint("TOPLEFT", 0, 0)
         content:SetJustifyH("LEFT")
         content:SetJustifyV("TOP")
-        content:SetWidth(480)
+        content:SetWidth(500)
         content:SetText(getTextFunc())
 
-        -- Now safe to set scroll child
-        scrollFrame:SetScrollChild(container)
-
-        return scrollFrame, content
+        return frame, content
     end
 
     ------------------------------------------------------------
@@ -169,23 +161,33 @@ f:SetScript("OnEvent", function(self, event, addon)
     )
 
     ------------------------------------------------------------
-    -- Status Box (shows /grstatus output)
+    -- Cache validity dropdown (in seconds)
     ------------------------------------------------------------
-    local statusLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    statusLabel:SetPoint("TOPLEFT", 20, -200)
-    statusLabel:SetText("Current Status (/grstatus):")
-    local statusBox = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
-    statusBox:SetPoint("TOPLEFT", statusLabel, "BOTTOMLEFT", 0, -5)
-    statusBox:SetSize(500, 200)
-    statusBox:SetMultiLine(true)
-    statusBox:SetAutoFocus(false)
-    statusBox:SetFontObject("GameFontHighlightSmall")
-    statusBox:SetCursorPosition(0)
-    statusBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    panel.statusBox = statusBox
+    local cacheItems = {
+        { text = "5 minutes", value = 300 },
+        { text = "15 minutes", value = 900 },
+        { text = "30 minutes", value = 1800 },
+        { text = "1 hour (default)", value = 3600 },
+    }
+    local initialCache = GuildRouterDB and GuildRouterDB.cacheValidity or 3600
+    local ddCache = CreateDropdown(
+        panel,
+        "Cache validity:",
+        cacheItems,
+        initialCache,
+        function(val)
+            GuildRouterDB = GuildRouterDB or {}
+            GuildRouterDB.cacheValidity = val
+            GR_CACHE_VALIDITY = val
+        end,
+        20, -320
+    )
+    local cacheHelp = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    cacheHelp:SetPoint("TOPLEFT", ddCache, "BOTTOMLEFT", 20, -2)
+    cacheHelp:SetText("How long the in-memory guild cache is considered fresh (seconds). Larger values reduce refreshes.")
 
     ------------------------------------------------------------
-    -- Display status and command line text
+    -- Display command line text (no scrollbar)
     ------------------------------------------------------------
-    panel.helpBoxFrame, panel.helpBox = CreateTextPanel(panel, "Slash Commands (/grhelp):", 20, -420, 160, GR_GetHelpText)
+    panel.helpBoxFrame, panel.helpBox = CreateTextPanel(panel, "Slash Commands (/grhelp):", 20, -200, 160, GR_GetHelpText)
 end)

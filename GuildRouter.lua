@@ -783,14 +783,21 @@ SlashCmdList["GRTEST"] = function(arg)
         note = "Sargeras has changed the Officer Note for LeeroyJenkins.",
     }
     if tests[arg] then
+        -- Pre-populate cache for class-coloured output
+        nameClassCache["Turalyon"] = "PALADIN"
+        nameClassCache["Murloc"] = "SHAMAN"
+        nameClassCache["Sargeras"] = "WARLOCK"
+        nameClassCache["Swapxy"] = "SHAMAN"
+        nameClassCache["LeeroyJenkins"] = "PALADIN"
         FilterGuildMessages(nil, "CHAT_MSG_SYSTEM", tests[arg])
         PrintMsg("Test: " .. arg .." (see Guild tab)")
     elseif arg == "ach" then
         local achID = 62110
         local achLink = GetAchievementLink(achID)
         local testPlayer = "Turalyon-Ner'zhul"
-        -- Pre-populate cache so the guild membership check passes
+        -- Pre-populate cache so the guild membership check passes and for class colouring
         nameClassCache[testPlayer] = "PALADIN"
+        nameClassCache["Turalyon"] = "PALADIN"
         GR_NameCache["Turalyon"] = "Ner'zhul"
         FilterGuildMessages(nil, "CHAT_MSG_GUILD_ACHIEVEMENT",
             "%s has earned the achievement %s!", testPlayer, achLink)

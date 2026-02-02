@@ -589,12 +589,55 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
     end
     -- Guild achievements
     if event == "CHAT_MSG_GUILD_ACHIEVEMENT" then
+        -- Handle both format-string style messages ("%s has earned the achievement %s!")
+        -- and fully formatted messages that already contain a |Hplayer:...|h[...]|h block.
         local player = sender or "Unknown"
         GR_CacheName(player)
-        local achievementLink = ...
-        local formatted = format(msg, GetColoredPlayerLink(player), achievementLink)
-        targetFrame:AddMessage(formatted)
-        return true
+
+        -- Determine the achievement link argument (if present)
+        local achievementLink = select(1, ...)
+
+        -- If Blizzard already inserted a player hyperlink into the message, capture it
+        local inlinePlayerLink = msg:match("(|Hplayer:[^|]-|h.-|h)")
+
+        -- Resolve the full name (name-realm) to consult our cache
+        local fullName
+        if inlinePlayerLink then
+            local extracted = inlinePlayerLink:match("|Hplayer:([^:|]+)")
+            if extracted then
+                fullName = GR_ResolveName(extracted)
+            end
+        end
+        if not fullName then
+            fullName = GR_ResolveName(player)
+        end
+
+        -- Ensure roster is fresh if needed and only proceed for guild members
+        local isGuild = IsGuildMember(fullName)
+        if not isGuild and IsCacheStale() then
+            RefreshCacheIfNeeded("guild achievement (" .. tostring(fullName) .. ")")
+            isGuild = IsGuildMember(fullName)
+        end
+        if not isGuild then
+            -- Not a guild member (or not in our cache): let default handling occur
+            return false
+        end
+
+        local formattedName = GetColoredPlayerLink(fullName)
+
+        if inlinePlayerLink and achievementLink then
+            -- Replace Blizzard's player hyperlink block with our coloured clickable name,
+            -- preserving the rest of the message (including the achievement link).
+            local esc = inlinePlayerLink:gsub("(%W)", "%%%1")
+            local newMsg = gsub(msg, esc, formattedName, 1)
+            targetFrame:AddMessage(newMsg)
+            return true
+        else
+            -- Fallback: msg is a format string; substitute our formatted name and achievement link
+            local formatted = format(msg, formattedName, achievementLink)
+            targetFrame:AddMessage(formatted)
+            return true
+        end
     end
     return false
 end

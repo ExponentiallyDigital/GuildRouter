@@ -116,7 +116,7 @@ When a presence message arrives (“X has come online”), **GuildRouter** resol
 
 The result is a system that is instantaneous and rock‑solid: presence messages are always correct, class colours are always accurate, and the addon never stutters or rebuilds more than necessary. It’s engineered to stay fast under heavy event storms, behave deterministically, and keep your chat clean without wasting CPU cycles or impacting your FPS.
 
-## <a name='Contributing'></a>Contributing
+## Contributing
 
 Contributions to improve this tool are welcome! To contribute:
 
@@ -128,11 +128,11 @@ Contributions to improve this tool are welcome! To contribute:
 
 Please ensure your changes maintain compatibility with existing variable formats and follows Lua best practices.
 
-## <a name='Support'></a>Support
+## Support
 
 This tool is unsupported and may cause objects in mirrors to be closer than they appear etc. Batteries not included.
 
-## <a name='License'></a>License
+## License
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 

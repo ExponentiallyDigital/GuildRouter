@@ -788,8 +788,12 @@ SlashCmdList["GRTEST"] = function(arg)
     elseif arg == "ach" then
         local achID = 62110
         local achLink = GetAchievementLink(achID)
+        local testPlayer = "Turalyon-Ner'zhul"
+        -- Pre-populate cache so the guild membership check passes
+        nameClassCache[testPlayer] = "PALADIN"
+        GR_NameCache["Turalyon"] = "Ner'zhul"
         FilterGuildMessages(nil, "CHAT_MSG_GUILD_ACHIEVEMENT",
-            "%s has earned the achievement %s!", "Turalyon-Ner'zhul", achLink)
+            "%s has earned the achievement %s!", testPlayer, achLink)
         PrintMsg("Test: achievement (see Guild tab)")
     else
         PrintMsg("Tests: join, leave, promote, demote, note, ach")

@@ -45,27 +45,3 @@ Test for memory leaks with
 run below x2 and check values match or use /grstatus
     /run print("DB:", tostring(GuildRouterDB and GuildRouterDB.showLoginLogout), tostring(GuildRouterDB and GuildRouterDB.presenceMode), tostring(GuildRouterDB and GuildRouterDB.presenceTrace))
     /run print("Globals:", tostring(GRShowLoginLogout), tostring(GRPresenceMode), tostring(GRPresenceTrace))
-
-=================
-
-To do
-1. are guild member login/out messages still going into General as well as Guild?
-
- Greydolly has come online. [Invite] <- in General AND Guild (he doesn't use ELvUI)
- Nephiszel has come online. <- in Guild
- Khranuladir has gone offline. <- in Guild
-
-is it when ppl come online? Trim spaces at start of message?
-
-Guild:
- [Khranuladir-Proudmoore] has come online. 
- Jensgreeneyz has gone offline. 
- Khranuladir has gone offline. 
- Nixxon has gone offline.
-General:
-[Khranuladir-Proudmoore] has come online. 
-
-2. change login message, option to disable display
- GuildRouter: DBG:init assigned GRPresenceMode=guild-only GRPresenceTrace=false GRShowLoginLogout=true 
-
-3. Publish to curseforge

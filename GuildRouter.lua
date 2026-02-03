@@ -88,11 +88,13 @@ initFrame:SetScript("OnEvent", function(self, event, addon, ...)
             targetFrame = EnsureGuildTabExists()
         end
         -- debugging
-        PrintMsg(
-        "DBG:init assigned GRPresenceMode=" .. tostring(GRPresenceMode)
-        .. " GRPresenceTrace=" .. tostring(GRPresenceTrace)
-        .. " GRShowLoginLogout=" .. tostring(GRShowLoginLogout)
-        )
+        if GRPresenceTrace then
+            PrintMsg(
+            "DBG:init assigned GRPresenceMode=" .. tostring(GRPresenceMode)
+            .. " GRPresenceTrace=" .. tostring(GRPresenceTrace)
+            .. " GRShowLoginLogout=" .. tostring(GRShowLoginLogout)
+            )
+        end
         self:UnregisterEvent("PLAYER_LOGIN")
     end
 end)

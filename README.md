@@ -118,6 +118,11 @@ Contributions to improve this tool are welcome! To contribute:
 
 Please ensure your changes maintain compatibility with existing variable formats and follows Lua best practices.
 
+## Bugs and new features
+
+Found a bug or want to submit a feature request?
+[open an issue here](https://github.com/ExponentiallyDigital/GuildRouter/issues)
+
 ## Support
 
 This tool is unsupported and may cause objects in mirrors to be closer than they appear etc. Batteries not included.

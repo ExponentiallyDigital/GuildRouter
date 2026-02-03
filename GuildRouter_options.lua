@@ -192,7 +192,7 @@ f:SetScript("OnEvent", function(self, event, addon)
     )
     local cacheHelp = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     cacheHelp:SetPoint("TOPLEFT", ddCache, "BOTTOMLEFT", 20, -2)
-    cacheHelp:SetText("How long the in-memory guild cache is considered fresh (seconds). Larger values reduce refreshes.")
+    cacheHelp:SetText("How long the in-memory guild cache is considered fresh. Larger values reduce refreshes.")
 
     ------------------------------------------------------------
     -- 5. Display command line text

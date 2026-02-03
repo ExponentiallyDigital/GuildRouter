@@ -31,7 +31,7 @@ jobs:
 
       - name: Convert README.md to HTML
         run: |
-          pandoc README.md -f markdown -t html -s -o build/GuildRouter/README.html
+          pandoc README.md -f gfm -t html -s --self-contained -o build/GuildRouter/README.html
 
       - name: Create ZIP
         run: |

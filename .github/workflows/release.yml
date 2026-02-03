@@ -3,8 +3,13 @@ name: Package Addon
 on:
   push:
     tags:
-      - "v*" # triggers only when you push a tag like v0.3.014
+      - "v*"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run without creating a release"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -20,7 +25,6 @@ jobs:
       - name: Create addon directory
         run: |
           mkdir -p build/GuildRouter
-          # Copy ONLY the files you want in the release
           cp GuildRouter.toc build/GuildRouter/
           cp GuildRouter.lua build/GuildRouter/
           cp GuildRouter_options.lua build/GuildRouter/
@@ -29,7 +33,7 @@ jobs:
       - name: Install Pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc
 
-      - name: Convert README.md to HTML
+      - name: Convert README.md to HTML (self-contained)
         run: |
           pandoc README.md -f gfm -t html -s --self-contained -o build/GuildRouter/README.html
 
@@ -38,7 +42,12 @@ jobs:
           cd build
           zip -r "GuildRouter-${GITHUB_REF_NAME}.zip" GuildRouter
 
+      - name: Dry run notice
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: echo "Dry run completed — no release was created."
+
       - name: Upload Release Asset
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           files: build/GuildRouter-${{ github.ref_name }}.zip

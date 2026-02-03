@@ -13,6 +13,7 @@ Stop losing track of your guild's activity in a flood of trade chat, raid alerts
 You can create a custom chat tab and enable Guild, Officer, System, Announce, and Achievement messages but Blizzard’s routing is purely mechanical. It simply dumps raw events into a window with no intelligence, no filtering, and no awareness of guild context.
 
 **GuildRouter** goes far beyond what the default UI can do:
+
 - **Guild‑only achievements:** Blizzard’s Achievement channel shows every nearby player’s achievements, including party and raid members, even when they aren’t in your guild. GuildRouter filters and formats only guild member achievements, keeping the feed focused and noise‑free.
 - **Class‑coloured, clickable names:** all system events (joins, leaves, achievements, roster changes) are enriched with class colours, clickable links, and realm‑aware name resolution.
 - **Roster‑aware presence logic:** configurable login/logout visibility (guild‑only, all, off) with correct handling of short names and out‑of‑order events.
@@ -69,7 +70,7 @@ Addon options:
 - **Cache Validity**: `5 mins | 15 mins | 30 mins | 1 hour (default) | 2 hours` controls how long **GuildRouter** considers its internal guild roster cache “fresh.” A longer validity period means fewer roster scans and lower overhead, which is ideal for normal gameplay, the default of one hour is perfect for most players.
   If you’re actively managing the guild roster (promotions, demotions, invites, removals), you may want to choose a shorter interval so the addon refreshes its data more frequently and reflects changes sooner.
 
-Any changes take effect immediately but are only written to the savedvariables file on successful logout
+Any changes take effect immediately but are only written to the savedvariables file on successful logout.
 
 ## Command Line Options
 

@@ -529,7 +529,7 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             -- Display/hide login/logout messages
             ------------------------------------------------------------
             if not GRShowLoginLogout then
-                return false
+                return true
             end
             ------------------------------------------------------------
             -- Resolve short names (e.g., "Leeroy") to name + realm
@@ -539,7 +539,7 @@ local function FilterGuildMessages(self, event, msg, sender, ...)
             -- Presence mode: off
             ------------------------------------------------------------
             if GRPresenceMode == "off" then
-                return false
+                return true
             end
             ------------------------------------------------------------
             -- Guild-only mode: ignore non-guild members (with on-demand refresh)

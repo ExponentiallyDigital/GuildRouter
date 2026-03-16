@@ -24,23 +24,30 @@ jobs:
 
       - name: Create addon directory
         run: |
-          mkdir -p build/GuildRouter
-          cp GuildRouter.toc build/GuildRouter/
-          cp GuildRouter.lua build/GuildRouter/
-          cp GuildRouter_options.lua build/GuildRouter/
-          cp LICENSE build/GuildRouter/
+          ADDON="${{ github.event.repository.name }}"
+          mkdir -p build/$ADDON
+
+          # Copy files
+          cp "$ADDON.toc" build/$ADDON/
+          cp "$ADDON.lua" build/$ADDON/
+          # no error if options file doesn't exist
+          cp "$ADDON"_options.lua build/$ADDON/ || true
+          cp LICENSE build/$ADDON/
 
       - name: Install Pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc
 
       - name: Convert README.md to HTML (self-contained)
         run: |
-          pandoc README.md -f gfm -t html -s --self-contained -o build/GuildRouter/README.html
+          ADDON="${{ github.event.repository.name }}"
+          pandoc README.md -f gfm -t html -s --self-contained \
+            -o build/$ADDON/README.html
 
       - name: Create ZIP
         run: |
+          ADDON="${{ github.event.repository.name }}"
           cd build
-          zip -r "GuildRouter-${GITHUB_REF_NAME}.zip" GuildRouter
+          zip -r "$ADDON-${GITHUB_REF_NAME}.zip" "$ADDON"
 
       - name: Dry run notice
         if: ${{ github.event.inputs.dry_run == 'true' }}
@@ -50,6 +57,6 @@ jobs:
         if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@v2
         with:
-          files: build/GuildRouter-${{ github.ref_name }}.zip
+          files: build/${{ github.event.repository.name }}-${{ github.ref_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

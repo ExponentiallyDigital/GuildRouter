@@ -45,10 +45,10 @@ Blizzard gives you a bucket. **GuildRouter** gives you a curated, intelligent gu
 2. Restart World of Warcraft or logout and login
 
 On load/login:
-![Screenshot: GuildRouter UI](./initialisation.jpg)
+![Screenshot: GuildRouter UI](./images/initialisation.jpg)
 
 Example updates:
-![Screenshot: GuildRouter UI](./updates.jpg)
+![Screenshot: GuildRouter UI](./images/updates.jpg)
 
 ## Configuration
 
@@ -61,7 +61,7 @@ If you are using ElvUI, you may need to drag the ‘Guild’ tab once to your pr
 You can modify four values that affect how the addon operates. These are configurable via the standard Blizzard addon UI under `<ESCAPE>->Options->Addons->GuildRouter`.
 
 Addon options:
-![Screenshot: GuildRouter UI](./addon_options.jpg)
+![Screenshot: GuildRouter UI](./images/addon_options.jpg)
 
 - **Show login/logout messages**: `enable (default) | disable` display of login and logout messages in the Guild tab
 - **Show login/logout messages for**: `Guild-only (default) | off | all` which types of users' login/logout messages will be displayed. Selecting `all` enables anyone in your friends list to be announced to the Guild tab.
@@ -88,7 +88,7 @@ GuildRouter provides several slash commands to manage the Guild tab, control pre
 - `/grnames` display cached player→realm mappings.
 
 GuildRouter status `/grstatus`:
-![Screenshot: GuildRouter UI](./status.jpg)
+![Screenshot: GuildRouter UI](./images/status.jpg)
 
 ## Technical details
 

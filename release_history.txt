@@ -1,0 +1,327 @@
+— 2026-03-16 ADD release.yml now autocreates version_history.txt
+    .github/workflows/release.yml | 52 insertions, 3 deletions
+
+— 2026-03-16 ADD release.yml no longer has hardcoded filenames
+    .github/workflows/release.yml | 15 insertions, 8 deletions
+
+— 2026-03-16 v0.3.019 FIX typo in TOC
+    GuildRouter.toc | 2 insertions, 2 deletions
+
+— 2026-03-16 v0.3.018 cosmetic change to release naming
+    GuildRouter.toc | 1 insertion, 1 deletion
+
+— 2026-03-16 v0.3.017 no code changes, tidied up file structure
+    .gitignore | 1 insertion, 0 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+    README.md | 4 insertions, 4 deletions
+    commands.md => docs/commands.md | 0 insertions, 0 deletions
+    event_routing.md => docs/event_routing.md | 0 insertions, 0 deletions
+    flowchart.md => docs/flowchart.md | 0 insertions, 0 deletions
+    savedvariables.md => docs/savedvariables.md | 0 insertions, 0 deletions
+    testcases.txt => docs/testcases.txt | 46 insertions, 46 deletions
+    GuildRouter-logo-1024x1024.png => images/GuildRouter-logo-1024x1024.png | added
+    GuildRouter-logo-400x400.png => images/GuildRouter-logo-400x400.png | added
+    addon_options.jpg => images/addon_options.jpg | added
+    initialisation.jpg => images/initialisation.jpg | added
+    status.jpg => images/status.jpg | added
+    updates.jpg => images/updates.jpg | added
+
+— 2026-02-04 v0.3.016 FIX login/out messages appearing when they shouldn't
+    GuildRouter.lua | 2 insertions, 2 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+
+— 2026-02-04 ADD: addon logo files
+    GuildRouter-logo-1024x1024.png | added
+    GuildRouter-logo-400x400.png | added
+
+— 2026-02-04 v0.3.015 remove startup message unless debug has been enabled; removed todo list from testcases.txt
+    GuildRouter.lua | 7 insertions, 5 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+    testcases.txt | 1 insertion, 25 deletions
+
+— 2026-02-04 ADD: dry run to release; FIX punctuation in README
+    .github/workflows/release.yml | 12 insertions, 3 deletions
+    README.md | 2 insertions, 1 deletion
+
+— 2026-02-04 FIX: embed images in README.html
+    .github/workflows/release.yml | 1 insertion, 1 deletion
+
+— 2026-02-03 FIX: correct workflow_dispatch indentation
+    .github/workflows/release.yml | 2 insertions, 1 deletion
+
+— 2026-02-03 FIX: grant contents:write permission for release
+    .github/workflows/release.yml | 3 insertions, 0 deletions
+
+— 2026-02-03 FIX: install pandoc before converting README
+    .github/workflows/release.yml | 3 insertions, 0 deletions
+
+— 2026-02-03 FIX: release yaml in wrong directory
+    .github/{ISSUE_TEMPLATE => }/workflows/release.yml | 0 insertions, 0 deletions
+
+— 2026-02-03 ADD: automated release build
+    .github/ISSUE_TEMPLATE/workflows/release.yml | 39 insertions, 0 deletions
+
+— 2026-02-03 Save changes before rewriting history
+    .github/ISSUE_TEMPLATE/bug_report.md | 31 insertions, 31 deletions
+    .github/ISSUE_TEMPLATE/feature_request.md | 20 insertions, 20 deletions
+    .gitignore | 2 insertions, 2 deletions
+    GuildRouter_options.lua | 201 insertions, 201 deletions
+    README.md | 138 insertions, 138 deletions
+    testcases.txt | 70 insertions, 70 deletions
+
+— 2026-02-03 Added BUG & feature submission to README
+    README.md | 5 insertions, 0 deletions
+
+— 2026-02-03 Added BUG and FEATURE templates
+    .github/ISSUE_TEMPLATE/bug_report.md | 31 insertions, 0 deletions
+    .github/ISSUE_TEMPLATE/feature_request.md | 20 insertions, 0 deletions
+
+— 2026-02-03 v0.3.014 released to CurseForge
+    GuildRouter.toc | 1 insertion, 1 deletion
+
+— 2026-02-03 updated updates image
+    updates.jpg | added
+
+— 2026-02-03 updated options image
+    addon_options.jpg | added
+
+— 2026-02-03 Options: text update
+    GuildRouter_options.lua | 1 insertion, 1 deletion
+
+— 2026-02-03 README formatting
+    README.md | 4 insertions, 14 deletions
+
+— 2026-02-03 FIX: added colorisation to all test names, all are pre-populated in the cache too
+    GuildRouter.lua | 8 insertions, 1 deletion
+
+— 2026-02-02 FIX: grtest ach wasn't firing as Turalyon is not a real guild member, added him to teh cache.
+    GuildRouter.lua | 5 insertions, 1 deletion
+    README.md | 3 insertions, 3 deletions
+
+— 2026-02-02 v0.3.013 added character name colorisation for guild member achievements; added README section on differences between Blizzard handling and this addon.
+    GuildRouter.lua | 47 insertions, 4 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+    README.md | 34 insertions, 8 deletions
+
+— 2026-02-01 upadted testcases
+    README.md | 1 insertion, 1 deletion
+    testcases.txt | 26 insertions, 5 deletions
+
+— 2026-02-01 PERF: reduce memory consumption
+    GuildRouter.lua | 3 insertions, 1 deletion
+    README.md | 1 insertion, 1 deletion
+    testcases.txt | 7 insertions, 2 deletions
+
+— 2026-02-01 v0.3.012 release; updated docs
+    GuildRouter.toc | 2 insertions, 2 deletions
+    README.md | 25 insertions, 13 deletions
+    initialisation.jpg | added
+    status.jpg | added
+    testcases.txt | 4 insertions, 2 deletions
+
+— 2026-02-01 FIX: cache not being populated
+    GuildRouter.lua | 12 insertions, 11 deletions
+    README.md | 30 insertions, 35 deletions
+    testcases.txt | 1 insertion, 6 deletions
+
+— 2026-01-31 ADD: screenshots
+    .gitignore | 0 insertions, 2 deletions
+    addon_options.jpg | added
+    initialisation.jpg | added
+    status.jpg | added
+    testcases.txt | 5 insertions, 1 deletion
+    updates.jpg | added
+
+— 2026-01-31 v0.3.011 updated UI text to pull headings from TOC file
+    GuildRouter.toc | 2 insertions, 2 deletions
+    GuildRouter_options.lua | 21 insertions, 5 deletions
+
+— 2026-01-31 v0.3.010 release
+    .gitignore | 2 insertions, 0 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+
+— 2026-01-31 FIX: disply all message groups subscribed to in the Guild panel;
+    GuildRouter.lua | 16 insertions, 18 deletions
+    GuildRouter_options.lua | 22 insertions, 30 deletions
+    testcases.txt | 1 insertion, 7 deletions
+
+— 2026-01-31 ADD: show cache validity in status; UI moved status to bottom of screen
+    GuildRouter.lua | 54 insertions, 27 deletions
+    GuildRouter_options.lua | 32 insertions, 30 deletions
+
+— 2026-01-31 FIX: cache refresh reason added; GUILD_ROSTER_UPDATE respects 5 min validity
+    GuildRouter.lua | 20 insertions, 14 deletions
+
+— 2026-01-31 FIX: cache being refreshed multiple times, firing for each userr event like login/out
+    GuildRouter.lua | 46 insertions, 24 deletions
+
+— 2026-01-31 FIXED: UI sync with memory and savredvariables
+    GuildRouter.lua | 25 insertions, 20 deletions
+    testcases.txt | 33 insertions, 25 deletions
+
+— 2026-01-31 updated and normalised status output
+    GuildRouter.lua | 130 insertions, 105 deletions
+    GuildRouter.toc | 0 insertions, 1 deletion
+    GuildRouter_options.lua | 186 insertions, 152 deletions
+    testcases.txt | 42 insertions, 0 deletions
+
+— 2026-01-31 v0.3.001 added UI config; restructured status and help display for reuse in UI panel
+    GuildRouter.lua | 102 insertions, 50 deletions
+    GuildRouter.toc | 2 insertions, 1 deletion
+    GuildRouter_options.lua | 157 insertions, 0 deletions
+    README.md | 1 insertion, 1 deletion
+    commands.md | 23 insertions, 0 deletions
+    event_routing.md | 86 insertions, 0 deletions
+    flowchart.md | 1 insertion, 19 deletions
+    savedvariables.md | 79 insertions, 0 deletions
+
+— 2026-01-30 v0.2.004 added flowchart
+    GuildRouter.lua | 1 insertion, 1 deletion
+    GuildRouter.toc | 1 insertion, 1 deletion
+    README.md | 1 insertion, 1 deletion
+    flowchart.md | 63 insertions, 0 deletions
+
+— 2026-01-30 FIX: missing local group name
+    GuildRouter.lua | 1 insertion, 0 deletions
+
+— 2026-01-30 UI: grstatus format
+    GuildRouter (2).lua | 0 insertions, 691 deletions
+    GuildRouter.lua | 15 insertions, 18 deletions
+
+— 2026-01-30 FIX: confusing chat channel descrs in grstatus
+    GuildRouter.lua | 19 insertions, 2 deletions
+
+— 2026-01-30 v0.2.003 fully tested, tweaks to print statements.
+    GuildRouter.toc | 1 insertion, 1 deletion
+    README.md | 2 insertions, 0 deletions
+
+— 2026-01-30 ADD: version to status
+    GuildRouter.lua | 1 insertion, 1 deletion
+
+— 2026-01-30 Add: status version
+    GuildRouter.lua | 4 insertions, 17 deletions
+    README.md | 1 insertion, 3 deletions
+
+— 2026-01-30 remove grdebug
+    GuildRouter.lua | 0 insertions, 10 deletions
+    README.md | 0 insertions, 2 deletions
+
+— 2026-01-30 FIX: grstatus
+    GuildRouter.lua | 41 insertions, 9 deletions
+
+— 2026-01-30 FIX: grstatus missing slash command
+    GuildRouter.lua | 1 insertion, 0 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+    README.md | 1 insertion, 1 deletion
+
+— 2026-01-30 v0.2.002 updated grtest, FIX memory leak in RefreshNameCache (GR_NameCache), eliminated temporary table allocations
+    GuildRouter (2).lua | 691 insertions, 0 deletions
+    GuildRouter.lua | 79 insertions, 60 deletions
+    README.md | 1 insertion, 1 deletion
+
+— 2026-01-30 v0.2.001 50% code reduction via ghcp
+    .gitignore | 2 insertions, 0 deletions
+    GuildRouter.lua | 95 insertions, 677 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+    README.md | 16 insertions, 43 deletions
+
+— 2026-01-29 v0.1.028 added RequestRosterSafe, RefreshNameCache; updated GR_NormalizeName
+    GuildRouter.lua | 84 insertions, 43 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+    README.md | 16 insertions, 14 deletions
+
+— 2026-01-29 v 0.1.027, tested working release, resolved name not found; updated readme
+    GuildRouter.lua | 154 insertions, 31 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+    README.md | 8 insertions, 4 deletions
+
+— 2026-01-29 fail: but saving anyway - all names fail to match guild except achievements
+    GuildRouter.lua | 15 insertions, 6 deletions
+
+— 2026-01-29 fix: status messages
+    GuildRouter.lua | 20 insertions, 6 deletions
+
+— 2026-01-29 add: status reporting; fixrealm name with apostraphe and high bit chars on logout
+    GuildRouter.lua | 371 insertions, 40 deletions
+    GuildRouter.toc | 1 insertion, 1 deletion
+    README.md | 7 insertions, 2 deletions
+
+— 2026-01-29 fix: elvui chat frame can't be deleted :/ apply workaround
+    GuildRouter.lua | 27 insertions, 7 deletions
+
+— 2026-01-29 fix: ELvui not sequecing tabs correctly
+    GuildRouter.lua | 29 insertions, 20 deletions
+    README.md | 2 insertions, 0 deletions
+
+— 2026-01-29 add: elvui and blizzard specific chat frame orderuing function, force Guild tab to end
+    GuildRouter.lua | 63 insertions, 29 deletions
+
+— 2026-01-29 fix: not docking in last position
+    GuildRouter.lua | 26 insertions, 13 deletions
+
+— 2026-01-29 fix: grreset to create tab in last not fisrt position
+    GuildRouter.lua | 18 insertions, 4 deletions
+
+— 2026-01-29 fix: grreset not attaching frame to others
+    GuildRouter.lua | 11 insertions, 3 deletions
+
+— 2026-01-29 fix: grreset not moving frame to tab
+    GuildRouter.lua | 6 insertions, 0 deletions
+    README.md | 3 insertions, 1 deletion
+
+— 2026-01-29 fix: /grreset wasn't deleting Guild tab, updated descr to say what it does and added new command line arg to do that + updated help text
+    GuildRouter.lua | 29 insertions, 6 deletions
+    README.md | 2 insertions, 2 deletions
+
+— 2026-01-29 fix: gmotd showing twice; fix: login not routing, logout is routinmg
+    GuildRouter.lua | 17 insertions, 8 deletions
+
+— 2026-01-29 fix: match login name, logout is OK
+    GuildRouter.lua | 15 insertions, 11 deletions
+    README.md | 3 insertions, 0 deletions
+
+— 2026-01-29 fix: updated pattern matches for "x has come online" to route message to Guild tab
+    GuildRouter.lua | 40 insertions, 12 deletions
+
+— 2026-01-29 add: all command line options added to README.md
+    README.md | 54 insertions, 4 deletions
+
+— 2026-01-29 typo in toc
+    GuildRouter.toc | 1 insertion, 1 deletion
+
+— 2026-01-29 updated DB name ion TOC + author
+    GuildRouter.toc | 3 insertions, 3 deletions
+    README.md | 1 insertion, 1 deletion
+
+— 2026-01-29 updated comments & help text
+    GuildRouter.lua | 10 insertions, 9 deletions
+
+— 2026-01-29 update: format help text display; add: stores presence to savedvariables
+    GuildRouter.lua | 36 insertions, 7 deletions
+    GuildRouter.toc | 3 insertions, 2 deletions
+
+— 2026-01-29 fix: achieve displayed 2x; add: grpresence; fix: only displays guild member login/out; fix: grsources
+    GuildRouter.lua | 199 insertions, 129 deletions
+
+— 2026-01-29 fix: Guild tab not visible
+    GuildRouter.lua | 164 insertions, 1 deletion
+
+— 2026-01-29 if created, add channels to guild tab
+    GuildRouter.lua | 49 insertions, 2 deletions
+    LICENSE | 674 insertions, 0 deletions
+    README.md | 47 insertions, 17 deletions
+
+— 2026-01-29 refined for performance
+    GuildRouter.lua | 133 insertions, 54 deletions
+    README.md | 24 insertions, 29 deletions
+
+— 2026-01-29 added readme.md
+    GuildRouter.lua | 0 insertions, 2 deletions
+    README.md | 46 insertions, 0 deletions
+
+— 2026-01-29 untested, realm offline, but optimised
+    GuildRouter.lua | 122 insertions, 51 deletions
+
+— 2026-01-29 Initial commit
+    GuildRouter.lua | 109 insertions, 0 deletions
+    GuildRouter.toc | 9 insertions, 0 deletions

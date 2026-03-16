@@ -21,16 +21,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required for full git history
 
       - name: Create addon directory
         run: |
           ADDON="${{ github.event.repository.name }}"
           mkdir -p build/$ADDON
 
-          # Copy files
           cp "$ADDON.toc" build/$ADDON/
           cp "$ADDON.lua" build/$ADDON/
-          # no error if options file doesn't exist
           cp "$ADDON"_options.lua build/$ADDON/ || true
           cp LICENSE build/$ADDON/
 
@@ -42,6 +42,53 @@ jobs:
           ADDON="${{ github.event.repository.name }}"
           pandoc README.md -f gfm -t html -s --self-contained \
             -o build/$ADDON/README.html
+
+      - name: Generate release_history.txt
+        run: |
+          git log \
+            --pretty=format:"COMMIT %ad %s" \
+            --date=short \
+            --numstat \
+            | awk '
+              /^COMMIT / {
+                  if (started) print "";
+                  started=1;
+                  sub(/^COMMIT /, "— ");
+                  print;
+                  next;
+              }
+              /^[0-9-]/ {
+                  ins=$1; del=$2;
+                  file=$3;
+                  for (i=4; i<=NF; i++) file = file " " $i;
+
+                  if (ins=="-" && del=="-") {
+                      printf "    %s | added\n", file;
+                      next;
+                  }
+
+                  printf "    %s | %s insertion%s, %s deletion%s\n",
+                      file,
+                      ins, (ins=="1"?"":"s"),
+                      del, (del=="1"?"":"s");
+                  next;
+              }
+            ' > release_history.txt
+
+      - name: Commit updated release_history.txt to repo root
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add release_history.txt
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Update release_history.txt for ${{ github.ref_name }}"
+            git push
+          else
+            echo "No changes to commit."
+          fi
 
       - name: Create ZIP
         run: |
@@ -57,6 +104,8 @@ jobs:
         if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@v2
         with:
-          files: build/${{ github.event.repository.name }}-${{ github.ref_name }}.zip
+          files: |
+            build/${{ github.event.repository.name }}-${{ github.ref_name }}.zip
+            release_history.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,8 +2,8 @@
 ## Title: GuildRouter
 ## Notes: Routes guild events (MOTD, joins/leaves, achievements, roster changes), login/logout, and Guild & Officer chat to a 'Guild' tab.
 ## Author: ArcNineOhNine
-## Version: 0.3.018
-## Category: ArcNineOhNIne
+## Version: 0.3.019
+## Category: ArcNineOhNine
 ## SavedVariables: GuildRouterDB
 
 GuildRouter.lua

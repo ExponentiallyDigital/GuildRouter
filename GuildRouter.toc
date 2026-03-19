@@ -1,10 +1,11 @@
-## Interface: 120000
+## Interface: 120001, 120000
 ## Title: GuildRouter
 ## Notes: Routes guild events (MOTD, joins/leaves, achievements, roster changes), login/logout, and Guild & Officer chat to a 'Guild' tab.
 ## Author: ArcNineOhNine
-## Version: 0.3.21
+## Version: 0.3.22
 ## Category: ArcNineOhNine
 ## SavedVariables: GuildRouterDB
+## IconTexture: Interface\AddOns\GuildRouter\media\GuildRouter-icon
 
 GuildRouter.lua
 GuildRouter_options.lua

@@ -28,11 +28,13 @@ jobs:
         run: |
           ADDON="${{ github.event.repository.name }}"
           mkdir -p build/$ADDON
+          mkdir -p build/$ADDON/media
 
           cp "$ADDON.toc" build/$ADDON/
           cp "$ADDON.lua" build/$ADDON/
           cp "$ADDON"_options.lua build/$ADDON/ || true
           cp LICENSE build/$ADDON/
+          cp media/*.blp build/$ADDON/media
 
       - name: Install Pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc

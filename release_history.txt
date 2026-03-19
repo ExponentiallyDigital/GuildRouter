@@ -1,3 +1,14 @@
+— 2026-03-20 v0.3.22 TOC bump, ADD icon file, UPDATED yml workflow
+    .github/workflows/release.yml | 2 insertions, 0 deletions
+    GuildRouter.toc | 3 insertions, 2 deletions
+    README.html | 406 insertions, 0 deletions
+    media/GuildRouter-icon.blp | added
+    media/GuildRouter-icon.png | added
+    media/GuildRouter-logo.png | added
+
+— 2026-03-16 Update release_history.txt for v0.3.21
+    release_history.txt | 6 insertions, 0 deletions
+
 — 2026-03-16 v0.3.21 TOC bump
     GuildRouter.toc | 1 insertion, 1 deletion
 

@@ -36,7 +36,8 @@ Blizzard gives you a bucket. **GuildRouter** gives you a curated, intelligent gu
 - **MOTD integration:** routes the guild message of the day to the tab upon login and update
 - **Anti-spam engine:** uses monotonic game-time tracking to de-duplicate rapid-fire system messages
 - **Performance:** built with active name caching, localized globals, and inlined pattern escaping to ensure zero impact on your FPS
-- **Efficiency:** consumes trivial memory (567KB with a 773 player guild), only fires on system events
+- **Efficiency:** consumes trivial memory at ~262 KB with a ~875 player guild. That’s ~150× less than RareScanner and ~335× less than Auctionator. Put another way: GuildRouter is the size of a small pamphlet, while RareScanner is a full novel and Auctionator is an encyclopedia volume. In terms of CPU usage, it only fires on system events.
+
 - **Privacy:** all routed messages respect the data source, you can't see more than allowed e.g. officer chat restricted per Guild config
 
 ## Installation
